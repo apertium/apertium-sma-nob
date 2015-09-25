@@ -1,0 +1,2118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copied from apertium-sme-nob -->
+
+<!--
+This is the third pass. Responsibilities of this file include:
+
+* V2 Movement etc., rules which involve verb, adverb and/or noun chunks
+  * See rule: SPEC SN FV
+* Inserting dropped pronouns
+  * Overridden by rules matching the maybe-[LR]SUBJ categories; these include
+    unknowns and should just be passed through unchanged.
+  * See macro: set_pro
+* Inserting adverbs to indicate modality
+  * See macro: set_adv
+* Correct definiteness using the larger context (eg. verb animacy / number / temps)
+  * See macro: set_defnes2
+* Change perfect participle of non-finites to preterite when following the negation verb
+  * See rules with FV.neg
+* Using verb animacy/number to guess GD/ND subject gender/number
+  * See macro modify_GD_ND_subj3
+  * Only regards pre-verbal GD/ND subjects, post-verbal are handled in t2x
+
+TODO
+* Using verb animacy/number to guess GD/ND subject gender/number
+  * See macro modify_GD_ND_subj3
+
+
+DEF-CAT NAMING SCHEME:
+                       chunklemma-CHUNKTAG_SYNTAG.tag.tag
+
+where the SYNTAG part may have an l or r before or after to signify the arrow
+(where l corresponds to ← and r to →).
+So "det-SN_rOBJ.nom" would include chunks like det<SN><@→OBJ><p1><mf><du><nom>{...}
+
+-->
+
+<interchunk>
+  <section-def-cats>
+    <def-cat n="SN">
+      <cat-item tags="SN"/>
+      <cat-item tags="SN.*"/>
+    </def-cat>
+    <def-cat n="SA">
+      <cat-item tags="SA"/>
+      <cat-item tags="SA.*"/>
+    </def-cat>
+    <def-cat n="PR">
+      <cat-item tags="PR"/>
+      <cat-item tags="PR.*"/>
+    </def-cat>
+    <def-cat n="maybe-SUBJr" c="not relatives, use rel-SUBJr for those">
+      <cat-item lemma="unknown" tags="unknown"/>
+      <cat-item tags="SN.←hab→.*"/>
+      <cat-item tags="SN.@SUBJ→.*"/>
+      <cat-item tags="SV.@SUBJ→.*"/>
+      <cat-item tags="SN.@X.*"/>
+    </def-cat>
+    <def-cat n="rel-SUBJr">
+      <cat-item lemma="rel" tags="*.@SUBJ→"/>
+      <cat-item lemma="rel" tags="@SUBJ→.*"/>
+    </def-cat>
+    <def-cat n="maybe-lSUBJ">
+      <cat-item lemma="unknown" tags="unknown"/>
+      <cat-item tags="SN.←hab→.*"/>           <!-- HAB or not here? -->
+      <cat-item tags="SV.@←SUBJ.*"/>
+      <cat-item tags="SN.@←SUBJ.*"/>
+      <cat-item tags="SA.@←SUBJ.*"/>
+      <!-- also @SUBJ→, for avoiding pro-insertion with @+FAUXV @SUBJ→ @-FMAINV -->
+      <cat-item tags="SV.@SUBJ→.*"/>
+      <cat-item tags="SN.@SUBJ→.*"/>
+      <cat-item tags="SA.@SUBJ→.*"/>
+      <cat-item tags="SN.@X.*"/>
+    </def-cat>
+    <def-cat n="lSPRED">
+      <cat-item tags="SV.@←SPRED.*"/>
+      <cat-item tags="SN.@←SPRED.*"/>
+      <cat-item tags="SA.@←SPRED.*"/>
+    </def-cat>
+    <def-cat n="SA_ADVLr">
+      <cat-item tags="SA.@ADVL→"/>
+      <cat-item tags="SA.@ADVL→.*"/>
+    </def-cat>
+    <def-cat n="adv-lADVL">
+      <cat-item lemma="adv" tags="@←ADVL"/>
+    </def-cat>
+    <def-cat n="ADVLrOBJr">
+      <cat-item tags="*.@OBJ→"/>
+      <cat-item tags="*.@OBJ→.*"/>
+      <cat-item tags="*.@ADVL→"/>
+      <cat-item tags="*.@ADVL→.*"/>
+      <cat-item lemma="adv" tags="@ADVL→"/>
+      <cat-item lemma="adv" tags="@ADVL→.*"/>
+    </def-cat>
+    <def-cat n="lOPRED">
+      <cat-item tags="SV.@←OPRED.*"/>
+      <cat-item tags="SN.@←OPRED.*"/>
+      <cat-item tags="SA.@←OPRED.*"/>
+    </def-cat>
+    <def-cat n="lOBJ">
+      <cat-item tags="SV.@←OBJ.*"/>
+      <cat-item tags="SN.@←OBJ.*"/>
+      <cat-item tags="SA.@←OBJ.*"/>
+    </def-cat>
+    <def-cat n="lOBJ_lOPRED">
+      <cat-item tags="SV.@←OBJ.*"/>
+      <cat-item tags="SN.@←OBJ.*"/>
+      <cat-item tags="SA.@←OBJ.*"/>
+      <cat-item tags="SV.@←OPRED.*"/>
+      <cat-item tags="SN.@←OPRED.*"/>
+      <cat-item tags="SA.@←OPRED.*"/>
+    </def-cat>
+    <def-cat n="ISUBJr" c="subject of infinite verb (setningstilsvar). @-FOBJ should not be here, was a CG error">
+      <cat-item tags="SN.@-FSUBJ→.*"/>
+      <cat-item tags="SV.@-FSUBJ→.*"/>
+    </def-cat>
+    <def-cat n="SV_lOBJ-tilsvar">
+      <cat-item tags="SV.@←OBJ.*"/>
+    </def-cat>
+    <def-cat n="CS">
+      <cat-item lemma="conj" tags="@CVP.cnjsub"/>
+      <cat-item lemma="conj" tags="@CNP.cnjsub"/>
+    </def-cat>
+    <def-cat n="ADVL">
+      <cat-item lemma="adv" tags="@PCLE"/>
+      <cat-item lemma="adv" tags="@ADVL"/>
+      <cat-item lemma="adv" tags="@ADVL.*"/>
+      <cat-item tags="SN.@ADVL"/>
+      <cat-item tags="SN.@ADVL.*"/>
+      <cat-item tags="SA.@ADVL"/>
+      <cat-item tags="SA.@ADVL.*"/>
+      <cat-item lemma="adv" tags="@←ADVL"/>
+      <cat-item lemma="adv" tags="@←ADVL.*"/>
+      <cat-item tags="SN.@←ADVL"/>
+      <cat-item tags="SN.@←ADVL.*"/>
+      <cat-item tags="SA.@←ADVL"/>
+      <cat-item tags="SA.@←ADVL.*"/>
+      <cat-item lemma="adv" tags="@ADVL→"/>
+      <cat-item lemma="adv" tags="@ADVL→.*"/>
+      <cat-item tags="SN.@ADVL→"/>
+      <cat-item tags="SN.@ADVL→.*"/>
+      <cat-item tags="SA.@ADVL→"/>
+      <cat-item tags="SA.@ADVL→.*"/>
+    </def-cat>
+    <def-cat n="adv-FV.neg">
+      <cat-item lemma="adv" tags="SV.@+FAUXV.neg.*"/>
+    </def-cat>
+    <def-cat n="adv-FV.neg.qst">
+      <cat-item lemma="adv" tags="SV.@+FAUXV.neg.qst.*"/>
+    </def-cat>
+    <def-cat n="FV.qst">
+      <cat-item tags="SV.@+FMAINV.qst.*"/>
+      <cat-item tags="SV.@+FAUXV.qst.*"/>
+      <cat-item lemma="adv" tags="SV.@+FAUXV.neg.qst.*"/>
+    </def-cat>
+    <def-cat n="FV">
+      <cat-item tags="SV.@+FMAINV"/>
+      <cat-item tags="SV.@+FMAINV.*"/>
+      <cat-item tags="SV.@+FAUXV"/>
+      <cat-item tags="SV.@+FAUXV.*"/>
+    </def-cat>
+    <def-cat n="adv-IV">
+      <cat-item lemma="adv" tags="SV.@-FMAINV"/>
+      <cat-item lemma="adv" tags="SV.@-FMAINV.*"/>
+      <cat-item lemma="adv" tags="SV.@-FAUXV"/>
+      <cat-item lemma="adv" tags="SV.@-FAUXV.*"/>
+    </def-cat>
+    <def-cat n="adj-IV">
+      <cat-item lemma="adj" tags="SA.@-FMAINV"/>
+      <cat-item lemma="adj" tags="SA.@-FMAINV.*"/>
+    </def-cat>
+    <def-cat n="V">
+      <cat-item tags="SV.*"/>
+    </def-cat>
+    <def-cat n="IV">
+      <cat-item tags="SV.@-FMAINV"/>
+      <cat-item tags="SV.@-FMAINV.*"/>
+      <cat-item tags="SV.@-FAUXV"/>
+      <cat-item tags="SV.@-FAUXV.*"/>
+    </def-cat>
+    <def-cat n="lemq">
+      <cat-item tags="lemq"/>
+      <cat-item tags="lemq.*"/>
+    </def-cat>
+    <def-cat n="lemq-obj">
+      <cat-item tags="lemq.lemq-obj"/>
+      <cat-item tags="lemq.lemq-obj.*"/>
+    </def-cat>
+    <def-cat n="SPEC" c="'Specifiyer', sort of... rather diffuse category here">
+      <cat-item lemma="adv" tags="@PCLE"/> <!-- TODO check -->
+      <cat-item lemma="adv" tags="@←ADVL"/>
+      <cat-item lemma="adv" tags="@←ADVL.*"/>
+      <cat-item lemma="adv" tags="@ADVL"/>
+      <cat-item lemma="adv" tags="@ADVL.*"/>
+      <cat-item tags="SN.@ADVL"/>
+      <cat-item tags="SN.@ADVL.*"/>
+      <cat-item tags="SA.@ADVL"/>
+      <cat-item tags="SA.@ADVL.*"/>
+      <cat-item lemma="adv" tags="@ADVL→"/>
+      <cat-item lemma="adv" tags="@ADVL→.*"/>
+      <cat-item tags="SN.@ADVL→"/>
+      <cat-item tags="SN.@ADVL→.*"/>
+      <cat-item tags="SA.@ADVL→"/>
+      <cat-item tags="SA.@ADVL→.*"/>
+      <cat-item tags="SN.@SPRED→"/>
+      <cat-item tags="SN.@SPRED→.*"/>
+      <cat-item tags="SN.@→P"/> <!-- object of postposition, moved by t2x -->
+      <cat-item tags="SN.@→P.*"/>
+      <cat-item tags="SN.@X"/>
+      <cat-item tags="SN.@X.*"/>
+    </def-cat>
+    <def-cat n="SPEC_SUBJr.qst">
+      <cat-item tags="SN.@SUBJ→.*.qst.*"/>
+    </def-cat>
+    <def-cat n="SADV">
+      <cat-item tags="@SADV"/>
+    </def-cat>
+  </section-def-cats>
+
+  <section-def-attrs>
+    <def-attr n="a_sintagma">
+      <attr-item tags="SN"/>
+      <attr-item tags="SV"/>
+      <attr-item tags="SA"/>
+    </def-attr>
+    <def-attr n="case">
+      <attr-item tags="Ill"/>
+      <attr-item tags="Loc"/>
+      <attr-item tags="Ine"/>
+      <attr-item tags="Ela"/>
+      <attr-item tags="nom"/>
+      <attr-item tags="acc"/>
+      <attr-item tags="gen"/>
+      <attr-item tags="com"/>
+      <attr-item tags="ess"/>
+      <attr-item tags="ill"/>
+      <attr-item tags="loc"/>
+      <attr-item tags="ine"/>
+      <attr-item tags="ela"/>
+    </def-attr>
+    <def-attr n="pers">
+      <attr-item tags="p1"/>
+      <attr-item tags="p2"/>
+      <attr-item tags="p3"/>
+    </def-attr>
+    <def-attr n="gen">
+      <attr-item tags="m"/>
+      <attr-item tags="f"/>
+      <attr-item tags="mf"/>
+      <attr-item tags="nt"/>
+      <attr-item tags="GD"/>
+      <attr-item tags="GD_pers"/>
+    </def-attr>
+    <def-attr n="nbr">
+      <attr-item tags="Sg"/>
+      <attr-item tags="Du"/>
+      <attr-item tags="Pl"/>
+      <attr-item tags="sg"/>
+      <attr-item tags="du"/>
+      <attr-item tags="pl"/>
+      <attr-item tags="ND"/>
+      <attr-item tags="sp"/>
+      <!-- the bidix pardef __verb should split these: -->
+      <attr-item tags="Sg1"/>
+      <attr-item tags="Du1"/>
+      <attr-item tags="Pl1"/>
+      <attr-item tags="Sg2"/>
+      <attr-item tags="Du2"/>
+      <attr-item tags="Pl2"/>
+      <attr-item tags="Sg3"/>
+      <attr-item tags="Du3"/>
+      <attr-item tags="Pl3"/>
+    </def-attr>
+    <def-attr n="temps">
+      <attr-item tags="Prs"/>
+      <attr-item tags="Prt"/>
+      <attr-item tags="pres"/>
+      <attr-item tags="pret"/>
+      <attr-item tags="Inf"/>
+      <attr-item tags="inf"/>
+      <attr-item tags="Imprt"/>
+      <attr-item tags="imp"/>
+      <attr-item tags="PrfPrc"/>
+      <attr-item tags="pp"/>
+      <attr-item tags="TD"/>
+    </def-attr>
+    <def-attr n="neg">
+      <attr-item tags="ConNeg"/>
+      <attr-item tags="Neg"/>
+    </def-attr>
+    <def-attr n="mode">
+      <attr-item tags="Qst"/>
+    </def-attr>
+    <def-attr n="modality">
+      <attr-item tags="Ind"/>
+      <attr-item tags="Cond"/>
+      <attr-item tags="Cond2"/>
+      <attr-item tags="Cond3"/>
+      <attr-item tags="Pot"/>
+    </def-attr>
+    <def-attr n="voice">
+      <attr-item tags="pass"/>
+    </def-attr>
+    <def-attr n="animacy">
+      <attr-item tags="impers"/>
+      <attr-item tags="pers"/>
+    </def-attr>
+    <def-attr n="syn_label">
+      <attr-item tags="@→A"/>
+      <attr-item tags="@A←"/>
+      <attr-item tags="@←ADVL"/>
+      <attr-item tags="@→ADVL"/>
+      <attr-item tags="@ADVL"/>
+      <attr-item tags="@ADVL←"/>
+      <attr-item tags="@ADVL→"/>
+      <attr-item tags="@ADVL→CS"/>
+      <attr-item tags="@ADVL←OBJ"/>
+      <attr-item tags="@ADVL→SUBJ"/>
+      <attr-item tags="@APP"/>
+      <attr-item tags="@APP-ADVL←"/>
+      <attr-item tags="@APP-N←"/>
+      <attr-item tags="@APP-Num←"/>
+      <attr-item tags="@APP-Pron←"/>
+      <attr-item tags="@APP→Pron"/>
+      <attr-item tags="@→CC"/>
+      <attr-item tags="@CNP"/>
+      <attr-item tags="@COMP-CS←"/>
+      <attr-item tags="@CVP"/>
+      <attr-item tags="@-F←ADVL"/>
+      <attr-item tags="@-FADVL"/>
+      <attr-item tags="@-FADVL→"/>
+      <attr-item tags="@-FAUXV"/>
+      <attr-item tags="@\+FAUXV"/>
+      <attr-item tags="@+FAUXV"/>
+      <attr-item tags="@-FMAINV"/>
+      <attr-item tags="@\+FMAINV"/>
+      <attr-item tags="@+FMAINV"/>
+      <attr-item tags="@-F←OBJ"/>
+      <attr-item tags="@-FOBJ"/>
+      <attr-item tags="@-FOBJ→"/>
+      <attr-item tags="@-F←OPRED"/>
+      <attr-item tags="@-FOPRED→"/>
+      <attr-item tags="@-F←SPRED"/>
+      <attr-item tags="@-FSPRED→"/>
+      <attr-item tags="@-FSUBJ→"/>
+      <attr-item tags="←hab→"/>
+      <attr-item tags="@HNOUN"/>
+      <attr-item tags="@INTERJ"/>
+      <attr-item tags="@→N"/>
+      <attr-item tags="@N←"/>
+      <attr-item tags="@N"/>
+      <attr-item tags="@→Num;"/>
+      <attr-item tags="@→Num"/>
+      <attr-item tags="@Num←"/>
+      <attr-item tags="@←OBJ"/>
+      <attr-item tags="@OBJ"/>
+      <attr-item tags="@OBJ→"/>
+      <attr-item tags="@OBJ→SPRED"/>
+      <attr-item tags="@-OPRED→"/>
+      <attr-item tags="@←OPRED"/>
+      <attr-item tags="@OPRED"/>
+      <attr-item tags="@OPRED→"/>
+      <attr-item tags="@→P"/>
+      <attr-item tags="@P←"/>
+      <attr-item tags="@PCLE"/>
+      <attr-item tags="@←PPRED"/>
+      <attr-item tags="@PPRED"/>
+      <attr-item tags="@→Pron"/>
+      <attr-item tags="@Pron←"/>
+      <attr-item tags="@-SPRED→"/>
+      <attr-item tags="@←SPRED"/>
+      <attr-item tags="@SPRED"/>
+      <attr-item tags="@SPRED→"/>
+      <attr-item tags="@SPRED←OBJ"/>
+      <attr-item tags="@←SUBJ"/>
+      <attr-item tags="@SUBJ"/>
+      <attr-item tags="@SUBJ→"/>
+      <attr-item tags="@SUBJ←ADVL"/>
+      <attr-item tags="@SUBJ←OBJ"/>
+      <attr-item tags="@VOC"/>
+      <attr-item tags="@X"/>
+    </def-attr>
+    <def-attr n="a_prn">
+      <attr-item tags="prn"/>
+      <attr-item tags="prn.rel"/>
+      <attr-item tags="prn.res"/>
+      <attr-item tags="prn.ind"/>
+      <attr-item tags="prn.dem"/>
+      <attr-item tags="prn.pers"/>
+      <attr-item tags="prn"/>
+      <attr-item tags="prn.itg"/>
+      <attr-item tags="prn.ref"/>
+    </def-attr>
+    <def-attr n="a_det">
+      <attr-item tags="det"/>
+      <attr-item tags="det.emph"/>
+      <attr-item tags="det.dem"/>
+      <attr-item tags="det.itg"/>
+      <attr-item tags="det.qnt"/>
+      <attr-item tags="det.pos"/>
+    </def-attr>
+    <def-attr n="art">
+      <attr-item tags="def"/>
+      <attr-item tags="ind"/>
+      <attr-item tags="DD"/>
+    </def-attr>
+  </section-def-attrs>
+
+  <section-def-vars>
+    <def-var n="tmpcase" c="tmp variable for switch_cases"/>
+    <def-var n="case-switch" c="should set_pro 'switch' cases of pro and verb chunk?"/>
+    <def-var n="gender"/>
+    <def-var n="pro" c="in case it was dropped"/>
+    <def-var n="pro-blank" c="one space if there's a pro, else nothing"/>
+    <def-var n="adv" c="conditional / potensialis"/>
+    <def-var n="adv-blank" c="one space if there's an adv, else nothing"/>
+  </section-def-vars>
+
+  <section-def-macros>
+    <def-macro n="switch_cases" npar="2"
+               c="Simply switch the typographic cases (upper/lower/capital) of the two arguments.">
+      <let><var n="tmpcase"/><get-case-from pos="1"><clip pos="1" part="lemh"/></get-case-from></let>
+      <let><clip pos="1" part="lemh"/><get-case-from pos="2"><clip pos="1" part="lemh"/></get-case-from></let>
+      <modify-case><clip pos="2" part="lemh"/><var n="tmpcase"/></modify-case>
+    </def-macro>
+
+    <def-macro n="gender_pro_concord" npar="2"
+               c="arg.1: det/adj, arg.2: verb
+                  -----
+                  Assumes set_pro has been called!
+                  Ensure that if we inserted a pro and had a copula and SA, the gender agrees.
+                  Apply verb gen/nbr to GD/ND subjects (eg. those that weren't handled in t2x).
+TODO: this should probably be called in more places.
+TODO: gender_non-pro_concord macro to make sure we get alt.nt from 'blod' in 'Buot lei varran', prpers.m from 'lærer' in 'Son lea oahpaheaddjin' and similar vcop constructions.">
+      <choose><when>
+        <test><and>
+          <equal><clip pos="1" part="a_sintagma"/><lit-tag v="SA"/></equal>
+          <equal caseless="yes"><clip pos="2" part="lemh"/><lit v="vcop"/></equal>
+          <not><equal><var n="pro"/><lit v=""/></equal></not>
+        </and></test>
+        <let><clip pos="1" part="gen"/><var n="gender"/></let>
+      </when></choose>
+    </def-macro>
+
+    <def-macro n="set_defnes2" npar="2"
+               c="arg.1: SN, arg.2: verb (the one with nbr, if there's a choice)
+                  Does nothing if arg.1 is relative prn.
+                  -----
+                  TODO: parts of this should only be used when loc/ill is in 'first position', check syn_label?
+                  Indefinite:
+                  o lokativ/(illativ) in first position + leat
+                  o habitiv tag
+                  o advl
+                  Definite:
+                  o lokativ not in first position + leat
+                  o subjects of dual verbforms">
+      <choose><when>
+        <test><not><equal caseless="yes"><clip pos="1" part="lemh"/><lit v="rel"/></equal></not></test>
+        <!-- Set defnes: -->
+        <choose><when>
+            <test>
+              <and>
+                <equal caseless="yes"><clip pos="2" part="lemh"/><lit v="verb"/></equal>
+                <or>
+                  <equal><clip pos="1" part="syn_label"/><lit-tag v="@ADVL"/></equal>
+                  <equal><clip pos="1" part="case"/><lit-tag v="Loc"/></equal>
+                  <equal><clip pos="1" part="case"/><lit-tag v="Ill"/></equal>
+                  <equal><clip pos="1" part="syn_label"/><lit-tag v="←hab→"/></equal>
+                  <and>           <!-- «mus lea» now tagged like this: -->
+                  <or>
+                    <begins-with><clip pos="1" part="a_prn"/><lit-tag v="prn"/></begins-with>
+                    <equal><clip pos="1" part="a_det"/><lit-tag v="det.dem"/></equal>
+                  </or>
+                    <equal><clip pos="1" part="case"/><lit-tag v="nom"/></equal> <!--loc→nom from t1x-->
+                    <or>
+                      <equal><clip pos="1" part="syn_label"/><lit-tag v="@ADVL→"/></equal>
+                      <equal><clip pos="1" part="syn_label"/><lit-tag v="@←ADVL"/></equal>
+                    </or>
+                  </and>
+                </or>
+              </and>
+            </test>
+            <let><clip pos="1" part="art"/><lit-tag v="ind"/></let>
+        </when></choose>
+        <choose>
+          <when>
+            <test>
+              <and>
+                <equal caseless="yes"><clip pos="2" part="lemh"/><lit v="verb"/></equal>
+                <equal><clip pos="2" part="nbr"/><lit-tag v="du"/></equal>
+                <or>
+                  <equal><clip pos="1" part="syn_label"/><lit-tag v="@SUBJ→"/></equal>
+                  <equal><clip pos="1" part="syn_label"/><lit-tag v="@←SUBJ"/></equal>
+                </or>
+              </and>
+            </test>
+            <let><clip pos="1" part="art"/><lit-tag v="def"/></let>
+          </when>
+        </choose>
+        <choose>
+          <when>
+            <test><and>
+              <equal caseless="yes"><clip pos="2" part="lemh"/><lit v="verb"/></equal>
+              <equal><clip pos="2" part="temps"/><lit-tag v="imp"/></equal>
+              <equal><clip pos="1" part="syn_label"/><lit-tag v="@←OBJ"/></equal>
+            </and></test>
+            <let><clip pos="1" part="art"/><lit-tag v="def"/></let>
+          </when>
+        </choose>
+      </when></choose>
+    </def-macro>
+
+    <def-macro n="guess_gender_p3sg" npar="1"
+               c="arg.1: verb chunk that is _known to be p3.sg_
+                  -----
+                    - default: nt (since we use this as default elsewhere too)
+                    - if animacy is impersonal (marked in bidix): nt
+                    - else if chunk gender was set by t2x: chunk gender
+                    - else if animacy is personal: m
+                  So an impersonal verb animacy will override the gender found on earlier subjects by t2x.
+
+                  Don't call this directly, use guess_gender1 or guess_gender2!
+                  ">
+      <choose>
+        <when>
+          <test><equal><clip pos="1" part="animacy"/><lit-tag v="impers"/></equal></test>
+          <let><var n="gender"/><lit-tag v="nt"/></let>
+        </when>
+        <when>
+          <test><equal><clip pos="1" part="voice"/><lit-tag v="pass"/></equal></test>
+          <let><var n="gender"/><lit-tag v="nt"/></let>
+        </when>
+        <when>
+          <test><not><equal><clip pos="1" part="gen"/><lit v=""/></equal></not></test>
+          <let><var n="gender"/><clip pos="1" part="gen"/></let>
+        </when>
+        <when>
+          <test><equal><clip pos="1" part="animacy"/><lit-tag v="pers"/></equal></test>
+          <let><var n="gender"/><lit-tag v="m"/></let>
+        </when>
+        <otherwise>
+          <let><var n="gender"/><lit-tag v="nt"/></let>
+        </otherwise>
+      </choose>
+    </def-macro>
+
+    <def-macro n="guess_gender1" npar="1"
+               c="arg.1: verb chunk
+                  Heuristics:
+                  o default: mf
+                  o p3 + sg
+                  - default: nt (since we use this as default elsewhere too)
+                  - if animacy is impersonal (marked in bidix): nt
+                  - else if chunk gender was set by t2x: chunk gender
+                  - else if animacy is personal: m
+                  So an impersonal verb animacy will override the gender found on earlier subjects by t2x.
+                  ">
+      <choose>
+        <when>
+          <test><and>
+            <equal><clip pos="1" part="pers"/><lit-tag v="p3"/></equal>
+            <equal><clip pos="1" part="nbr"/><lit-tag v="sg"/></equal>
+          </and></test>
+          <call-macro n="guess_gender_p3sg"><with-param pos="1"/></call-macro>
+        </when>
+        <otherwise>
+          <let><var n="gender"/><lit-tag v="mf"/></let>
+        </otherwise>
+      </choose>
+    </def-macro>
+
+    <def-macro n="guess_gender2" npar="2"
+               c="arg.1: possibly finite verb chunk, arg.2: content verb chunk">
+      <choose>
+        <when>
+          <test><and>
+            <equal><clip pos="1" part="pers"/><lit-tag v="p3"/></equal>
+            <equal><clip pos="1" part="nbr"/><lit-tag v="sg"/></equal>
+          </and></test>
+          <choose>
+            <when c="Infinitives are typically the head/main content verbs.">
+              <test><equal><clip pos="2" part="temps"/><lit-tag v="inf"/></equal></test>
+              <call-macro n="guess_gender_p3sg"><with-param pos="2"/></call-macro>
+            </when>
+            <otherwise c="Participles etc. are less likely to decide gender of subject.">
+              <call-macro n="guess_gender_p3sg"><with-param pos="1"/></call-macro>
+            </otherwise>
+          </choose>
+        </when>
+        <otherwise>
+          <let><var n="gender"/><lit-tag v="mf"/></let>
+        </otherwise>
+      </choose>
+    </def-macro>
+
+    <def-macro n="modify_GD_ND_subj3" npar="3"
+               c="arg.1: det/adj, arg.2: verb with number, arg.3: verb with animacy (main verb)
+                  ----
+                  Apply verb gen/nbr to GD/ND non-pro left-subjects
+                  (ie. those that weren't handled in t2x since they appear before the verb).">
+      <call-macro n="guess_gender1"><with-param pos="3"/></call-macro>
+      <choose><when>
+        <test><equal><clip pos="1" part="gen"/><lit-tag v="GD"/></equal></test>
+        <let><clip pos="1" part="gen"/><var n="gender"/></let>
+      </when></choose>
+      <choose><when>
+        <test><and>
+          <equal><clip pos="1" part="gen"/><lit-tag v="GD_pers"/></equal>
+          <or>
+            <equal><var n="gender"/><lit-tag v="m"/></equal>
+            <equal><var n="gender"/><lit-tag v="f"/></equal>
+          </or>
+        </and></test>
+        <let><clip pos="1" part="gen"/><var n="gender"/></let>
+      </when></choose>
+      <choose><when>
+        <test><equal><clip pos="1" part="nbr"/><lit-tag v="ND"/></equal></test>
+        <let><clip pos="1" part="nbr"/><clip pos="2" part="nbr"/></let>
+      </when></choose>
+      <let><var n="gender"/><clip pos="1" part="gen"/></let>
+    </def-macro>
+    <def-macro n="modify_GD_ND_subj2" npar="2"
+               c="arg.1: det/adj, arg.2: verb with number and animacy
+                  ----
+                  Apply verb gen/nbr to GD/ND non-pro left-subjects
+                  (ie. those that weren't handled in t2x since they appear before the verb).">
+      <call-macro n="modify_GD_ND_subj3">
+        <with-param pos="1"/>
+        <with-param pos="2"/>
+        <with-param pos="2"/>
+      </call-macro>
+    </def-macro>
+
+    <def-macro n="set_existential_pro" npar="2"
+               c="arg.1: verb chunk, arg.2: following word">
+      <let><var n="pro"/><lit v=""/></let>
+      <choose>
+        <when>
+          <test> <and>
+            <equal><clip pos="1" part="lemh"/><lit v="Vcop"/></equal>
+            <not><equal><clip pos="1" part="temps"/><lit-tag v="imp"/></equal></not>
+          </and></test>
+          <let>
+            <var n="pro"/>
+            <concat>
+              <lit v="^Prn"/>
+              <lit-tag v="SN.@SUBJ→.p3.nt.sg.nom"/>
+              <lit v="{^prpers"/>
+              <lit-tag v="prn.p3.nt.sg.nom"/>
+              <lit v="$}$"/>
+              <b/>
+            </concat>
+          </let>
+          <let><clip pos="1" part="lemh"/><get-case-from pos="2"><clip pos="1" part="lemh"/></get-case-from></let>
+        </when>
+      </choose>
+    </def-macro>
+
+    <def-macro n="set_pro" npar="2"
+               c="arg.1: possibly finite verb chunk, arg.2: content verb chunk
+                  -----
+                  If only one verb, use that as both args. If two, the first one is used
+                  to check if there's any finiteness (we only insert pro's if we've found
+                  the finite verb), while the gender is guessed from the second if it's
+                  an infinitive.
+
+                  Don't call this directly, use set_pro_lowercase or set_pro_verb_case!
+                  (Assumes that case-switch is set.)
+                  If given an infinitive or imperative, make pro and pro-blank empty.">
+      <choose>
+        <when>
+          <test><or>
+            <equal><clip pos="1" part="syn_label"/><lit-tag v="@-FMAINV"/></equal>
+            <equal><clip pos="1" part="syn_label"/><lit-tag v="@-FAUXV"/></equal>
+            <equal><clip pos="1" part="temps"/><lit-tag v="imp"/></equal>
+            <equal><clip pos="1" part="pers"/><lit v=""/></equal>
+            <equal><clip pos="1" part="nbr"/><lit v=""/></equal>
+          </or></test>
+          <let><var n="pro"/><lit v=""/></let>
+          <let><var n="pro-blank"/><lit v=""/></let>
+        </when>
+        <otherwise>
+          <call-macro n="guess_gender2"><with-param pos="1"/><with-param pos="2"/></call-macro>
+          <let><var n="pro"/><lit v="prn"/></let>
+          <choose><when>
+            <test><equal><var n="case-switch"/><lit v="yes"/></equal></test>
+            <let><var n="pro"/><get-case-from pos="1"><var n="pro"/></get-case-from></let>
+            <modify-case><clip pos="1" part="lemh"/><lit v="aa"/></modify-case>
+          </when></choose>
+          <let>
+            <var n="pro"/>
+            <concat>
+              <lit v="^"/>
+              <var n="pro"/>
+              <lit-tag v="@SUBJ"/>
+              <clip pos="1" part="pers"/>
+              <var n="gender"/>
+              <clip pos="1" part="nbr"/>
+              <lit-tag v="nom"/>
+              <lit v="{^"/>
+              <lit v="prpers"/>
+              <lit-tag v="prn"/>
+              <clip pos="1" part="pers"/>
+              <var n="gender"/>
+              <clip pos="1" part="nbr"/>
+              <lit-tag v="nom"/>
+              <lit v="$}$"/>
+            </concat>
+          </let>
+          <let><var n="pro-blank"/><b/></let>
+        </otherwise>
+      </choose>
+    </def-macro>
+
+    <def-macro n="set_pro_lowercase1" npar="1"
+               c="Gives pro lowercase, lets verb chunk keep its case.">
+      <let><var n="case-switch"/><lit v=""/></let>
+      <call-macro n="set_pro"><with-param pos="1"/><with-param pos="1"/></call-macro>
+    </def-macro>
+
+    <def-macro n="set_pro_verb_case1" npar="1"
+               c="Gives pro the case of verb chunk, gives verb chunk lowercase.">
+      <let><var n="case-switch"/><lit v="yes"/></let>
+      <call-macro n="set_pro"><with-param pos="1"/><with-param pos="1"/></call-macro>
+    </def-macro>
+
+    <def-macro n="set_pro_lowercase2" npar="2"
+               c="Gives pro lowercase, lets verb chunk keep its case.">
+      <let><var n="case-switch"/><lit v=""/></let>
+      <call-macro n="set_pro"><with-param pos="1"/><with-param pos="2"/></call-macro>
+    </def-macro>
+
+    <def-macro n="set_pro_verb_case2" npar="2"
+               c="Gives pro the case of verb chunk, gives verb chunk lowercase.">
+      <let><var n="case-switch"/><lit v="yes"/></let>
+      <call-macro n="set_pro"><with-param pos="1"/><with-param pos="2"/></call-macro>
+    </def-macro>
+
+    <def-macro n="set_adv" npar="1"
+               c="arg.1: verb chunk.
+                  Creates an adverb chunk to indicate potentialis case.
+                  (Conditionalis is handled by adding aux 'kunne' in t1x instead.)
+                  If given indicative, make adv and adv-blank empty, they are always output.">
+      <choose>
+        <when>
+          <test>
+            <equal><clip pos="1" part="modality"/><lit-tag v="Pot"/></equal>
+          </test>
+          <let>
+            <var n="adv"/>
+            <concat>
+              <lit v="^adv"/>
+              <lit-tag v="@ADVL"/>
+              <clip pos="1" part="modality"/>
+              <lit v="{^"/>
+              <lit v="da"/>     <!-- evt. "muligens" viss me har byråkratisk språk -->
+              <lit-tag v="adv"/>
+              <lit v="$}$"/>
+            </concat>
+          </let>
+          <let><var n="adv-blank"/><b/></let>
+        </when>
+        <otherwise>
+          <let><var n="adv"/><lit v=""/></let>
+          <let><var n="adv-blank"/><lit v=""/></let>
+        </otherwise>
+      </choose>
+    </def-macro>
+  </section-def-macros>
+
+  <section-rules>
+    <!-- <rules: no pro-drop insertion -->
+
+    <!-- <rules: ISUBJr IV
+         Setningstilsvar (infinite=>finite in subordinate sentences) -->
+    <rule comment="REGLA: ISUBJr IV
+                   (Máhtte muitalii) ádjá boahtit => (Máhtte fortalte) bestefar skulle komme
+                   TODO: set_defnes2 ? set_adv ?
+                   Adds 'skulle' if infinitive (and changes syn_label so t4x doesn't add 'å')">
+      <pattern>
+        <pattern-item n="ISUBJr"/>
+        <pattern-item n="SV_lOBJ-tilsvar"/>
+      </pattern>
+      <action>
+        <call-macro n="modify_GD_ND_subj2"><with-param pos="1"/><with-param pos="2"/></call-macro>
+        <out>
+          <chunk>
+            <lit v="conj"/><lit-tag v="@CVP"/><lit-tag v="cnjsub"/>
+            <lit v="{^at"/><lit-tag v="cnjsub"/><lit v="$}"/>
+          </chunk>
+          <b/>
+        </out>
+
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+        </out>
+
+        <choose><when>
+          <test><equal><clip pos="2" part="temps"/><lit-tag v="inf"/></equal></test>
+          <out>
+            <chunk>
+              <get-case-from pos="2"><lit v="verb"/></get-case-from><lit-tag v="@-FAUXV.inf"/>
+              <lit v="{^"/><lit v="skulle"/><lit-tag v="vblex.inf"/><lit v="$}"/>
+            </chunk>
+            <b/>
+          </out>
+          <let><clip pos="2" part="syn_label"/><lit-tag v="@-FMAINV"/></let>
+        </when></choose>
+        <out>
+          <chunk><clip pos="2" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+
+
+
+    <!-- <rules: SPEC_SUBJr.qst FV RSPRED* (insert existential 'det') -->
+    <rule comment="REGLA: SPEC_SUBJr.qst FV
+                   Áhččigo boahtá (ihttin) => Er det far som kommer (i morgen)
+                   Áhččigo bođii (ikte) => Var det far som kom (i går)
+                   Nom.qst.@SUBJ→ => Er det X som ...">
+      <pattern>
+        <pattern-item n="SPEC_SUBJr.qst"/>
+        <pattern-item n="FV"/>
+      </pattern>
+      <action>
+        <call-macro n="modify_GD_ND_subj2"><with-param pos="1"/><with-param pos="2"/></call-macro>
+        <call-macro n="set_defnes2">
+          <with-param pos="1"/>
+          <with-param pos="2"/>
+        </call-macro>
+        <call-macro n="set_adv"><with-param pos="2"/></call-macro>
+        <out>
+          <chunk>
+            <get-case-from pos="1"><lit v="verb"/></get-case-from>
+            <lit-tag v="@+FMAINV.qst.pres.p3.sg"/>
+            <lit v="{^"/>
+            <lit v="være"/><lit-tag v="vblex"/><clip pos="2" part="temps"/>
+            <lit v="$}"/>
+          </chunk>
+          <b/>
+          <chunk>
+            <lit v="pro"/><lit-tag v="@SUBJ"/>
+            <lit-tag v="p3"/><lit-tag v="nt"/><lit-tag v="sg"/><lit-tag v="nom"/>
+            <lit v="{^"/>
+            <lit v="prpers"/>
+            <lit-tag v="prn"/>
+            <lit-tag v="p3"/><lit-tag v="nt"/><lit-tag v="sg"/><lit-tag v="nom"/>
+            <lit v="$}"/>
+          </chunk>
+          <b/>
+          <var n="adv-blank"/><var n="adv"/>
+          <chunk>
+            <get-case-from pos="2"><clip pos="1" part="lemh"/></get-case-from>
+            <clip pos="1" part="tags"/>
+            <clip pos="1" part="chcontent"/>
+          </chunk>
+          <b pos="1"/>
+          <chunk>
+            <lit v="conj"/><lit-tag v="@CVP"/>
+            <lit v="{^"/>
+            <lit v="som"/><lit-tag v="cnjsub"/>
+            <lit v="$}"/>
+          </chunk>
+          <b/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+
+    <!-- <rules: rel FV -->
+    <rule comment="REGLA: rel-SUBJr FV">
+      <pattern>
+        <pattern-item n="rel-SUBJr"/>
+        <pattern-item n="FV"/>
+      </pattern>
+      <action>
+        <call-macro n="modify_GD_ND_subj2"><with-param pos="1"/><with-param pos="2"/></call-macro>
+        <call-macro n="set_adv"><with-param pos="2"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <var n="adv"/><var n="adv-blank"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: SPEC rel-SUBJr FV">
+      <pattern>
+        <pattern-item n="SPEC"/>
+        <pattern-item n="rel-SUBJr"/>
+        <pattern-item n="FV"/>
+      </pattern>
+      <action>
+        <call-macro n="modify_GD_ND_subj2"><with-param pos="2"/><with-param pos="3"/></call-macro>
+        <call-macro n="set_adv"><with-param pos="2"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <b pos="2"/>
+          <var n="adv"/><var n="adv-blank"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: PR SPEC rel-SUBJr FV">
+      <pattern>
+        <pattern-item n="PR"/>
+        <pattern-item n="SPEC"/>
+        <pattern-item n="rel-SUBJr"/>
+        <pattern-item n="FV"/>
+      </pattern>
+      <action>
+        <call-macro n="modify_GD_ND_subj2"><with-param pos="3"/><with-param pos="4"/></call-macro>
+        <call-macro n="set_adv"><with-param pos="4"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <b pos="2"/>
+          <chunk><clip pos="4" part="whole"/></chunk>
+          <b pos="3"/>
+          <var n="adv"/><var n="adv-blank"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+
+    <!-- <rules: maybe-SUBJr ADVL* FV IV* -->
+    <rule comment="REGLA: SPEC maybe-SUBJr FV
+                   V2-rule
+                   -----
+                   Doppe son orui (vahku) => Der_borte bodde han (ei uke)
+                   de son lei => så var han
+                   Go su áhčči jámii de gildui => Når hans far døde så ble han forbudt
+                   (PR)Mánnán/Nuorran son orui Romssas => (Som) barn/ungdom bodde han i Tromsø
+                   (don't have to match the PR if we can rely on the syn_label)">
+      <pattern>
+        <pattern-item n="SPEC"/>
+        <pattern-item n="maybe-SUBJr"/>
+        <pattern-item n="FV"/>
+      </pattern>
+      <action>
+        <call-macro n="modify_GD_ND_subj2"><with-param pos="2"/><with-param pos="3"/></call-macro>
+        <call-macro n="set_defnes2">
+          <with-param pos="2"/>
+          <with-param pos="3"/>
+        </call-macro>
+        <call-macro n="set_adv"><with-param pos="3"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <b pos="2"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: PR SPEC maybe-SUBJr ADVL FV
+                   V2-rule
+                   Mu bealis dat dušše nannejuvvui =2> for meg det bare ble =3> for meg ble det bare ">
+      <pattern>
+        <pattern-item n="PR"/>
+        <pattern-item n="SPEC"/>
+        <pattern-item n="maybe-SUBJr"/>
+        <pattern-item n="ADVL"/>
+        <pattern-item n="FV"/>
+      </pattern>
+      <action>
+        <call-macro n="modify_GD_ND_subj2"><with-param pos="3"/><with-param pos="5"/></call-macro>
+        <call-macro n="set_defnes2">
+          <with-param pos="3"/>
+          <with-param pos="5"/>
+        </call-macro>
+        <call-macro n="set_adv"><with-param pos="5"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <b pos="2"/>
+          <chunk><clip pos="5" part="whole"/></chunk>
+          <b pos="3"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <b pos="4"/>
+          <chunk><clip pos="4" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: PR SPEC maybe-SUBJr FV
+                   V2-rule
+                   dan maŋŋá son logai => etter det lærte han
+                   ('maŋŋá(PR) dan(SPEC)' after t2x)">
+      <pattern>
+        <pattern-item n="PR"/>
+        <pattern-item n="SPEC"/>
+        <pattern-item n="maybe-SUBJr"/>
+        <pattern-item n="FV"/>
+      </pattern>
+      <action>
+        <call-macro n="modify_GD_ND_subj2"><with-param pos="3"/><with-param pos="4"/></call-macro>
+        <call-macro n="set_defnes2">
+          <with-param pos="3"/>
+          <with-param pos="4"/>
+        </call-macro>
+        <call-macro n="set_adv"><with-param pos="4"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <b pos="2"/>
+          <chunk><clip pos="4" part="whole"/></chunk>
+          <b pos="3"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+        </out>
+      </action>
+    </rule>
+
+    <rule comment="REGLA: maybe-SUBJr FV
+                   Override prodrop rule (below) if we might have a subject to the left">
+      <pattern>
+        <pattern-item n="maybe-SUBJr"/>
+        <pattern-item n="FV"/>
+      </pattern>
+      <action>
+        <call-macro n="modify_GD_ND_subj2"><with-param pos="1"/><with-param pos="2"/></call-macro>
+        <call-macro n="set_defnes2">
+          <with-param pos="1"/>
+          <with-param pos="2"/>
+        </call-macro>
+        <call-macro n="set_adv"><with-param pos="2"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: maybe-SUBJr adv-FV.neg IV
+                   Máhtte ii leat (boahtán) => Máhtte har ikke (kommet)
+                   TODO: gii in dárbbaš => som ikke behøver (needs new rule!)
+                   Override prodrop rule (below) if we might have a subject to the left">
+      <pattern>
+        <pattern-item n="maybe-SUBJr"/>
+        <pattern-item n="adv-FV.neg"/>
+        <pattern-item n="IV"/>
+      </pattern>
+      <action>
+        <call-macro n="modify_GD_ND_subj3"><with-param pos="1"/><with-param pos="2"/><with-param pos="3"/></call-macro>
+        <call-macro n="set_defnes2">
+          <with-param pos="1"/>
+          <with-param pos="3"/>
+        </call-macro>
+        <call-macro n="set_adv"><with-param pos="3"/></call-macro>
+        <choose><when>
+          <test><equal><clip pos="3" part="temps"/><lit-tag v="pp"/></equal></test>
+          <let><clip pos="3" part="temps"/><lit-tag v="pret"/></let>
+        </when></choose>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+          <b pos="2"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: maybe-SUBJr adv-FV.neg adv-IV IV
+                   Son ii dáidde jienastit => Han stemmer nok ikke
+                   Note: although 'dáidde' is tagged -FAUXV, it has tempus.
+                   Override prodrop rule (TODO below) if we might have a subject to the left
+                   We don't introduce Cond/Pot adverbs here.">
+      <pattern>
+        <pattern-item n="maybe-SUBJr"/>
+        <pattern-item n="adv-FV.neg"/>
+        <pattern-item n="adv-IV"/>
+        <pattern-item n="IV"/>
+      </pattern>
+      <action>
+        <call-macro n="modify_GD_ND_subj3"><with-param pos="1"/><with-param pos="2"/><with-param pos="4"/></call-macro>
+        <call-macro n="set_defnes2">
+          <with-param pos="1"/>
+          <with-param pos="4"/>
+        </call-macro>
+        <let><clip pos="4" part="temps"/><clip pos="3" part="temps"/></let>
+        <choose><when>
+          <test><equal><clip pos="4" part="temps"/><lit-tag v="pp"/></equal></test>
+          <let><clip pos="4" part="temps"/><lit-tag v="pret"/></let>
+        </when></choose>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="4" part="whole"/></chunk>
+          <b pos="2"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <b pos="3"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: maybe-SUBJr ADVL FV
+                   -----
+                   V2-rule
+                   Son maiddái gažada => Han spør også
+                   Override prodrop rule (below) if we might have a subject to the left">
+      <pattern>
+        <pattern-item n="maybe-SUBJr"/>
+        <pattern-item n="ADVL"/>
+        <pattern-item n="FV"/>
+      </pattern>
+      <action>
+        <call-macro n="modify_GD_ND_subj2"><with-param pos="1"/><with-param pos="3"/></call-macro>
+        <call-macro n="set_defnes2">
+          <with-param pos="1"/>
+          <with-param pos="3"/>
+        </call-macro>
+        <call-macro n="set_adv"><with-param pos="3"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+          <b pos="2"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: ADVL maybe-SUBJr ADVL FV
+                   -----
+                   ieža moai dáppe váccašetne =1> bare vi_to her spaserer =3> vi_to bare spaserer her
+                   (The ieža @ADVL tag is given in t1x, originally @→Pron.)
+                   TODO: Might have to specify this more, does it 'overgenerate'?
+                   Override prodrop rule (below) if we might have a subject to the left">
+      <pattern>
+        <pattern-item n="ADVL"/>
+        <pattern-item n="maybe-SUBJr"/>
+        <pattern-item n="ADVL"/>
+        <pattern-item n="FV"/>
+      </pattern>
+      <action>
+        <call-macro n="modify_GD_ND_subj2"><with-param pos="2"/><with-param pos="4"/></call-macro>
+        <call-macro n="set_defnes2">
+          <with-param pos="2"/>
+          <with-param pos="4"/>
+        </call-macro>
+        <call-macro n="set_adv"><with-param pos="4"/></call-macro>
+        <out>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="2"/>
+          <chunk><clip pos="4" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+          <b pos="3"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+
+    <!-- <rules: SPEC* FV IV* RSUBJ: -->
+    <rule comment="REGLA: FV maybe-lSUBJ
+                   -----
+                   Override prodrop rule (below) if we might have a subject to the right">
+      <pattern>
+        <pattern-item n="FV"/>
+        <pattern-item n="maybe-lSUBJ"/>
+      </pattern>
+      <action>
+        <call-macro n="set_defnes2">
+          <with-param pos="2"/>
+          <with-param pos="1"/>
+        </call-macro>
+        <call-macro n="set_adv"><with-param pos="1"/></call-macro>
+        <call-macro n="set_existential_pro"><with-param pos="1"/><with-param pos="2"/></call-macro>
+        <out>
+          <var n="pro"/>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: FV lemq maybe-lSUBJ
+                   -----
+                   ovddasvástideigga soai => hadde de_to ansvar_for
+                   Override prodrop rule (below) if we might have a subject to the right">
+      <pattern>
+        <pattern-item n="FV"/>
+        <pattern-item n="lemq"/>
+        <pattern-item n="maybe-lSUBJ"/>
+      </pattern>
+      <action>
+        <call-macro n="set_defnes2">
+          <with-param pos="3"/>
+          <with-param pos="1"/>
+        </call-macro>
+        <call-macro n="set_adv"><with-param pos="1"/></call-macro>
+        <call-macro n="set_existential_pro"><with-param pos="1"/><with-param pos="2"/></call-macro>
+        <out>
+          <var n="pro"/>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <!-- the lemq space is inside its chunk, output both here -->
+          <b pos="1"/>
+          <b pos="2"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+
+    <!-- <rule comment="REGLA: PREDICATE leat INF -->
+    <!--                Buoret lea johtit => Det er bedre å bevege seg"> -->
+    <!--   <pattern> -->
+    <!--     <pattern-item n="PREDICATE"/> -->
+    <!--     <pattern-item n="vcop"/> -->
+    <!--     <pattern-item n="INF"/> -->
+    <!--   </pattern> -->
+    <!--   <action> -->
+    <!--     <call-macro n="set_adv"><with-param pos="2"/></call-macro> -->
+    <!--     <out> -->
+    <!--       <chunk><clip pos="1" part="whole"/></chunk> -->
+    <!--       <b pos="1"/> -->
+    <!--       <chunk><clip pos="2" part="whole"/></chunk> -->
+    <!--       <b pos="2"/> -->
+    <!--       <chunk><clip pos="3" part="whole"/></chunk> -->
+    <!--       <var n="adv-blank"/><var n="adv"/> -->
+    <!--     </out> -->
+    <!--   </action> -->
+    <!-- </rule> -->
+
+    <rule comment="REGLA: SPEC FV maybe-lSUBJ
+                   de lei son (juo) => så hadde han (allerede)
+                   Override prodrop rule if we might have a subject to the right">
+      <pattern>
+        <pattern-item n="SPEC"/>
+        <pattern-item n="FV"/>
+        <pattern-item n="maybe-lSUBJ"/>
+      </pattern>
+      <action>
+        <call-macro n="set_defnes2">
+          <with-param pos="3"/>
+          <with-param pos="2"/>
+        </call-macro>
+        <call-macro n="set_adv"><with-param pos="2"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <b pos="2"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: SPEC FV RSPRED
+                   -----
+                   (Muhto man) okto lei son? => (Men hvor) alene var han?
+                   Override prodrop rule for certain subject predicates on the right
+                   TODO: more general RSPRED handling">
+      <pattern>
+        <pattern-item n="SPEC"/>
+        <pattern-item n="FV"/>
+        <pattern-item n="lSPRED"/>
+      </pattern>
+      <action>
+        <call-macro n="set_defnes2">
+          <with-param pos="3"/>
+          <with-param pos="2"/>
+        </call-macro>
+        <call-macro n="set_adv"><with-param pos="2"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <b pos="2"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: PR SPEC FV maybe-lSUBJ
+                   (PR) su_mielas leat bohccot => i_hans_oppfatning er reinene
+                   Override prodrop rule if we might have a subject to the right">
+      <pattern>
+        <pattern-item n="PR"/>
+        <pattern-item n="SPEC"/>
+        <pattern-item n="FV"/>
+        <pattern-item n="maybe-lSUBJ"/>
+      </pattern>
+      <action>
+        <call-macro n="set_defnes2">
+          <with-param pos="4"/>
+          <with-param pos="3"/>
+        </call-macro>
+        <call-macro n="set_adv"><with-param pos="3"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <b pos="2"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <b pos="3"/>
+          <chunk><clip pos="4" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: FV IV maybe-lSUBJ
+                   gildui sámegiella => ble forbudt samisken => samisken ble forbudt
+                   Override prodrop rule (below) if we might have a subject to the right">
+      <pattern>
+        <pattern-item n="FV"/>
+        <pattern-item n="IV"/>
+        <pattern-item n="maybe-lSUBJ"/>
+      </pattern>
+      <action>
+        <call-macro n="set_defnes2">
+          <with-param pos="3"/>
+          <with-param pos="1"/>
+        </call-macro>
+        <call-macro n="set_adv"><with-param pos="1"/></call-macro>
+        <out>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+          <b pos="1"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: SPEC FV IV maybe-lSUBJ
+                   dađistaga gildui sámegiella => etterhvert ble forbudt samisken => etterhvert ble samisken forbudt
+                   Override prodrop rule if we might have a subject to the right">
+      <pattern>
+        <pattern-item n="SPEC"/>
+        <pattern-item n="FV"/>
+        <pattern-item n="IV"/>
+        <pattern-item n="maybe-lSUBJ"/>
+      </pattern>
+      <action>
+        <call-macro n="set_defnes2">
+          <with-param pos="4"/>
+          <with-param pos="2"/>
+        </call-macro>
+        <call-macro n="set_adv"><with-param pos="2"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+          <b pos="2"/>
+          <chunk><clip pos="4" part="whole"/></chunk>
+          <b pos="3"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: PR SPEC FV IV maybe-lSUBJ
+                   (PR) dan maŋŋá gildui sámegiella => etter det ble forbudt samisken => etter det ble samisken forbudt
+                   Override prodrop rule if we might have a subject to the right">
+      <pattern>
+        <pattern-item n="PR"/>
+        <pattern-item n="SPEC"/>
+        <pattern-item n="FV"/>
+        <pattern-item n="IV"/>
+        <pattern-item n="maybe-lSUBJ"/>
+      </pattern>
+      <action>
+        <call-macro n="set_defnes2">
+          <with-param pos="5"/>
+          <with-param pos="3"/>
+        </call-macro>
+        <call-macro n="set_adv"><with-param pos="3"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <b pos="2"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+          <b pos="3"/>
+          <chunk><clip pos="5" part="whole"/></chunk>
+          <b pos="4"/>
+          <chunk><clip pos="4" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+
+    <!-- <rules: CS SUBJ FV IV* -->
+    <rule comment="REGLA: CS maybe-SUBJr adv-FV.neg IV
+                   Subordinate clause.
+                   ahte áddjá ii dovdan => at bestefar (evt. ADV) ikke kjente">
+      <pattern>
+        <pattern-item n="CS"/>
+        <pattern-item n="maybe-SUBJr"/>
+        <pattern-item n="adv-FV.neg"/>
+        <pattern-item n="IV"/>
+      </pattern>
+      <action>
+        <call-macro n="modify_GD_ND_subj3"><with-param pos="2"/><with-param pos="3"/><with-param pos="4"/></call-macro>
+        <call-macro n="set_adv"><with-param pos="4"/></call-macro>
+        <choose><when>
+          <test><equal><clip pos="4" part="temps"/><lit-tag v="pp"/></equal></test>
+          <let><clip pos="4" part="temps"/><lit-tag v="pret"/></let>
+        </when></choose>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+          <b pos="2"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <b pos="3"/>
+          <chunk><clip pos="4" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: CS adv-FV.neg maybe-lSUBJ IV
+                   Subordinate clause.
+                   ahte eai mánát olle => at barna ikke når_frem">
+      <pattern>
+        <pattern-item n="CS"/>
+        <pattern-item n="adv-FV.neg"/>
+        <pattern-item n="maybe-lSUBJ"/>
+        <pattern-item n="IV"/>
+      </pattern>
+      <action>
+        <call-macro n="modify_GD_ND_subj3"><with-param pos="3"/><with-param pos="2"/><with-param pos="4"/></call-macro>
+        <call-macro n="set_adv"><with-param pos="4"/></call-macro>
+        <choose><when>
+          <test><equal><clip pos="4" part="temps"/><lit-tag v="pp"/></equal></test>
+          <let><clip pos="4" part="temps"/><lit-tag v="pret"/></let>
+        </when></choose>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <b pos="2"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+          <b pos="3"/>
+          <chunk><clip pos="4" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: CS adv-FV.neg maybe-lSUBJ ADVL IV
+                   Subordinate clause.
+                   ahte eai mánát šat olle => at barna ikke lenger når_frem">
+      <pattern>
+        <pattern-item n="CS"/>
+        <pattern-item n="adv-FV.neg"/>
+        <pattern-item n="maybe-lSUBJ"/>
+        <pattern-item n="ADVL"/>
+        <pattern-item n="IV"/>
+      </pattern>
+      <action>
+        <call-macro n="modify_GD_ND_subj3"><with-param pos="3"/><with-param pos="2"/><with-param pos="5"/></call-macro>
+        <call-macro n="set_adv"><with-param pos="5"/></call-macro>
+        <choose><when>
+          <test><equal><clip pos="5" part="temps"/><lit-tag v="pp"/></equal></test>
+          <let><clip pos="5" part="temps"/><lit-tag v="pret"/></let>
+        </when></choose>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <b pos="2"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+          <b pos="3"/>
+          <chunk><clip pos="4" part="whole"/></chunk>
+          <b pos="4"/>
+          <chunk><clip pos="5" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+
+
+    <!-- (FV) adj-IV adv-lADVL -->
+    <rule comment="REGLA: adj-IV adv-lADVL
+                   -----
+                   word order swap
+                   Dát vártnuhis dilli vearránii sakka 1982:s => 
+
+                   ">
+      <pattern>
+        <pattern-item n="adj-IV"/>
+        <pattern-item n="adv-lADVL"/>
+      </pattern>
+      <action>
+        <out>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="1" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+
+
+    <!-- <rules: pro-drop insertion for all finite verbs -->
+    <!-- <rules: (PR)SPEC* FV: -->
+    <rule comment="REGLA: SPEC FV
+                   -----
+                   V2-rule with pro-drop insertion
+                   Doppe dihten => Der borte visste jeg
+
+                   Note: This rule is partly blocked by the 'maybe-SUBJr FV' rule above.">
+      <pattern>
+        <pattern-item n="SPEC"/>
+        <pattern-item n="FV"/>
+      </pattern>
+      <action>
+        <call-macro n="set_defnes2">
+          <with-param pos="1"/>
+          <with-param pos="2"/>
+        </call-macro>
+        <call-macro n="set_pro_lowercase1"><with-param pos="2"/></call-macro>
+        <call-macro n="set_adv"><with-param pos="2"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <var n="pro-blank"/><var n="pro"/>
+          <var n="adv-blank"/><var n="adv"/>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: SPEC FV IV
+                   -----
+                   V2-rule with pro-drop insertion (gender based on IV)
+                   duorastaga iđida sáhttá borgat => torsdag morgen kan det fyke
+
+                   Note: This rule is partly blocked by the 'maybe-SUBJr FV' rule above.">
+      <pattern>
+        <pattern-item n="SPEC"/>
+        <pattern-item n="FV"/>
+        <pattern-item n="IV"/>
+      </pattern>
+      <action>
+        <call-macro n="set_defnes2">
+          <with-param pos="1"/>
+          <with-param pos="2"/>
+        </call-macro>
+        <call-macro n="set_pro_lowercase2"><with-param pos="2"/><with-param pos="3"/></call-macro>
+        <call-macro n="set_adv"><with-param pos="2"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <var n="pro-blank"/><var n="pro"/>
+          <var n="adv-blank"/><var n="adv"/>
+          <b pos="2"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: PR SPEC FV
+                   V2-rule with pro-drop insertion
+                   Mánnán dihten => Som barn visste jeg">
+      <pattern>
+        <pattern-item n="PR"/>
+        <pattern-item n="SPEC"/>
+        <pattern-item n="FV"/>
+      </pattern>
+      <action>
+        <call-macro n="set_defnes2">
+          <with-param pos="2"/>
+          <with-param pos="3"/>
+        </call-macro>
+        <call-macro n="set_pro_lowercase1"><with-param pos="3"/></call-macro>
+        <call-macro n="set_adv"><with-param pos="3"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <b pos="2"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <var n="pro-blank"/><var n="pro"/>
+          <var n="adv-blank"/><var n="adv"/>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: PR SPEC FV IV
+                   V2-rule with pro-drop insertion (gender based on IV)
+                   ">
+      <pattern>
+        <pattern-item n="PR"/>
+        <pattern-item n="SPEC"/>
+        <pattern-item n="FV"/>
+        <pattern-item n="IV"/>
+      </pattern>
+      <action>
+        <call-macro n="set_defnes2">
+          <with-param pos="2"/>
+          <with-param pos="3"/>
+        </call-macro>
+        <call-macro n="set_pro_lowercase2"><with-param pos="3"/><with-param pos="4"/></call-macro>
+        <call-macro n="set_adv"><with-param pos="3"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <b pos="2"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <var n="pro-blank"/><var n="pro"/>
+          <var n="adv-blank"/><var n="adv"/>
+          <b pos="3"/>
+          <chunk><clip pos="4" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+
+    <!-- <rules: CS FV IV*: -->
+    <rule comment="REGLA: CS FV
+                   Subordinate clause.
+                   dego livčče => som_om de kanskje er
+                   Insert dropped pronoun">
+      <pattern>
+        <pattern-item n="CS"/>
+        <pattern-item n="FV"/>
+      </pattern>
+      <action>
+        <call-macro n="set_pro_verb_case1"><with-param pos="2"/></call-macro>
+        <call-macro n="set_adv"><with-param pos="2"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <var n="pro-blank"/><var n="pro"/>
+          <var n="adv-blank"/><var n="adv"/>
+          <b pos="1"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: CS adv-FV.neg IV
+                   Subordinate clause.
+                   go it boađáše => at/når du ikke kommer
+                   Insert dropped pronoun">
+      <pattern>
+        <pattern-item n="CS"/>
+        <pattern-item n="adv-FV.neg"/>
+        <pattern-item n="IV"/>
+      </pattern>
+      <action>
+        <call-macro n="set_pro_verb_case1"><with-param pos="2"/></call-macro>
+        <call-macro n="set_adv"><with-param pos="3"/></call-macro>
+        <choose><when>
+          <test><equal><clip pos="3" part="temps"/><lit-tag v="pp"/></equal></test>
+          <let><clip pos="3" part="temps"/><lit-tag v="pret"/></let>
+        </when></choose>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <var n="pro-blank"/><var n="pro"/>
+          <var n="adv-blank"/><var n="adv"/>
+          <b pos="1"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <b pos="2"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+
+    <!-- <rules: FV.qst IV*: -->
+    <rule comment="REGLA: FV.qst
+                   Oainnátgo => Ser du
+                   Insert dropped pronoun">
+      <pattern>
+        <pattern-item n="FV.qst"/>
+      </pattern>
+      <action>
+        <call-macro n="set_pro_lowercase1"><with-param pos="1"/></call-macro>
+        <call-macro n="set_adv"><with-param pos="1"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <var n="pro-blank"/><var n="pro"/>
+          <var n="adv-blank"/><var n="adv"/>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: FV.qst SA
+                   Leago duohte? => Er det sant?
+                   Insert dropped pronoun, ensure adj agrees with it.">
+      <pattern>
+        <pattern-item n="FV.qst"/>
+        <pattern-item n="SA"/>
+      </pattern>
+      <action>
+        <call-macro n="set_pro_lowercase1"><with-param pos="1"/></call-macro>
+        <call-macro n="set_adv"><with-param pos="1"/></call-macro>
+        <choose><when>
+          <test><not><equal><var n="gender"/><lit v=""/></equal></not></test>
+          <let><clip pos="2" part="gen"/><var n="gender"/></let>
+        </when></choose>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b/>
+          <var n="pro-blank"/><var n="pro"/>
+          <var n="adv-blank"/><var n="adv"/>
+          <b pos="1"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: FV.qst lOBJ_RPRED
+                   Oainnátgo máná => Ser du barnet
+                   Insert dropped pronoun">
+      <pattern>
+        <pattern-item n="FV.qst"/>
+        <pattern-item n="lOBJ_lOPRED"/>
+      </pattern>
+      <action>
+        <call-macro n="set_defnes2">
+          <with-param pos="2"/>
+          <with-param pos="1"/>
+        </call-macro>
+        <call-macro n="set_pro_lowercase1"><with-param pos="1"/></call-macro>
+        <call-macro n="gender_pro_concord">
+          <with-param pos="2"/>
+          <with-param pos="1"/>
+        </call-macro>
+        <call-macro n="set_adv"><with-param pos="1"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <var n="pro-blank"/><var n="pro"/>
+          <var n="adv-blank"/><var n="adv"/>
+          <b pos="1"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: adv-FV.neg.qst IV
+                   itgo boađáše => kommer du ikke
+                   Insert dropped pronoun">
+      <pattern>
+        <pattern-item n="adv-FV.neg.qst"/>
+        <pattern-item n="IV"/>
+      </pattern>
+      <action>
+        <call-macro n="set_pro_lowercase2"><with-param pos="1"/><with-param pos="2"/></call-macro>
+        <call-macro n="switch_cases"><with-param pos="1"/><with-param pos="2"/></call-macro>
+        <call-macro n="set_adv"><with-param pos="2"/></call-macro>
+        <out>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <var n="pro-blank"/><var n="pro"/>
+          <b pos="1"/>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: adv-FV.neg IV
+                   it boađáše => du kommer ikke
+                   Insert dropped pronoun">
+      <pattern>
+        <pattern-item n="adv-FV.neg"/>
+        <pattern-item n="IV"/>
+      </pattern>
+      <action>
+        <call-macro n="set_pro_verb_case1"><with-param pos="1"/></call-macro>
+        <call-macro n="set_adv"><with-param pos="2"/></call-macro>
+        <call-macro n="switch_cases"><with-param pos="1"/><with-param pos="2"/></call-macro>
+        <out>
+          <var n="pro"/><var n="pro-blank"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+          <b pos="1"/>
+          <chunk><clip pos="1" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+
+    <!-- <rules: SA_ADVLr FV lOBJ -->
+    <rule comment="REGLA: SA_ADVLr FV lOBJ
+                   heajubut geavvat => vi hever oss dårligere
+                   (that example needs some bidix/lex.sel work TODO)">
+      <pattern>
+        <pattern-item n="SA_ADVLr"/>
+        <pattern-item n="FV"/>
+        <pattern-item n="lOBJ"/>
+      </pattern>
+      <action>
+        <call-macro n="set_defnes2">
+          <with-param pos="3"/>
+          <with-param pos="2"/>
+        </call-macro>
+        <call-macro n="set_pro_verb_case1"><with-param pos="2"/></call-macro>
+        <call-macro n="set_adv"><with-param pos="2"/></call-macro>
+        <out>
+          <var n="pro"/><var n="pro-blank"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+          <b pos="2"/>
+          <chunk><clip pos="1" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <!-- <rules: V* ADVLrOBJr ADVL* V lOPRED* -->
+    <rule comment="REGLA: adv-FV.neg.qst ADVLrOBJr IV
+                   Itgo gáfe juga => Drikker du ikke kaffe
+                   Insert dropped pronoun">
+      <pattern>
+        <pattern-item n="adv-FV.neg.qst"/>
+        <pattern-item n="ADVLrOBJr"/>
+        <pattern-item n="IV"/>
+      </pattern>
+      <action>
+        <call-macro n="set_defnes2">
+          <with-param pos="2"/>
+          <with-param pos="3"/>
+        </call-macro>
+        <call-macro n="switch_cases"><with-param pos="1"/><with-param pos="3"/></call-macro>
+        <call-macro n="set_pro_lowercase2"><with-param pos="1"/><with-param pos="3"/></call-macro>
+        <call-macro n="set_adv"><with-param pos="3"/></call-macro>
+        <out>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <var n="pro-blank"/><var n="pro"/>
+          <b pos="1"/>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+          <b pos="2"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: rel-SUBJr ADVLrOBJr V
+                   OV => VO order, but no pro-insertion:
+                   - gii dan čađahii → som gjennomførte det">
+      <pattern>
+        <pattern-item n="rel-SUBJr"/>
+        <pattern-item n="ADVLrOBJr"/>
+        <pattern-item n="V"/>
+      </pattern>
+      <action>
+        <call-macro n="modify_GD_ND_subj2"><with-param pos="1"/><with-param pos="2"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+        </out>
+        <call-macro n="set_defnes2">
+          <with-param pos="2"/>
+          <with-param pos="3"/>
+        </call-macro>
+        <choose>
+          <when c="Don't switch order if ADVLrOBJr is an actual adverb">
+            <test><equal><clip pos="2" part="lemh"/><lit v="adv"/></equal></test>
+            <call-macro n="set_adv"><with-param pos="3"/></call-macro>
+            <out>
+              <var n="adv"/><var n="adv-blank"/>
+              <chunk><clip pos="2" part="whole"/></chunk>
+              <b pos="2"/>
+              <chunk><clip pos="3" part="whole"/></chunk>
+            </out>
+          </when>
+          <otherwise>
+            <call-macro n="switch_cases"><with-param pos="2"/><with-param pos="3"/></call-macro>
+            <call-macro n="set_adv"><with-param pos="3"/></call-macro>
+            <out>
+              <var n="adv"/><var n="adv-blank"/>
+              <chunk><clip pos="3" part="whole"/></chunk>
+              <b pos="2"/>
+              <chunk><clip pos="2" part="whole"/></chunk>
+            </out>
+          </otherwise>
+        </choose>
+      </action>
+    </rule>
+    <rule comment="REGLA: ADVLrOBJr V
+                   OV => VO order:
+                   - dan oahppan => lært det
+                   - dan jearat => du spør det
+                   AV => VA order:
+                   - árrat.OBJ→  lávlut  => synge tidlig
+                   - árrat.ADVL→ goallut => fryse tidlig">
+      <pattern>
+        <pattern-item n="ADVLrOBJr"/>
+        <pattern-item n="V"/>
+      </pattern>
+      <action>
+        <call-macro n="set_defnes2">
+          <with-param pos="1"/>
+          <with-param pos="2"/>
+        </call-macro>
+        <choose>
+          <when c="Don't switch order if ADVLrOBJr is an actual adverb">
+            <test><equal><clip pos="1" part="lemh"/><lit v="adv"/></equal></test>
+            <call-macro n="set_pro_lowercase1"><with-param pos="2"/></call-macro>
+            <call-macro n="set_adv"><with-param pos="2"/></call-macro>
+            <out>
+              <var n="pro"/><var n="pro-blank"/>
+              <var n="adv"/><var n="adv-blank"/>
+              <chunk><clip pos="1" part="whole"/></chunk>
+              <b pos="1"/>
+              <chunk><clip pos="2" part="whole"/></chunk>
+            </out>
+          </when>
+          <otherwise>
+            <call-macro n="switch_cases"><with-param pos="1"/><with-param pos="2"/></call-macro>
+            <call-macro n="set_pro_verb_case1"><with-param pos="2"/></call-macro>
+            <call-macro n="set_adv"><with-param pos="2"/></call-macro>
+            <out>
+              <var n="pro"/><var n="pro-blank"/>
+              <var n="adv"/><var n="adv-blank"/>
+              <chunk><clip pos="2" part="whole"/></chunk>
+              <b pos="1"/>
+              <chunk><clip pos="1" part="whole"/></chunk>
+            </out>
+          </otherwise>
+        </choose>
+      </action>
+    </rule>
+
+    <rule comment="REGLA: ADVLrOBJr ADVL V
+                   when we have two ADVL→'s in a row:
+                   dađi buoret lea => desto bedre er (det) (da)
+
+                   otherwise:
+                   dan juo oahppan => allerede lært det
+                   dan juo jearat => du allerede spør det (TODO!!)
+                   OV => VO order">
+      <pattern>
+        <pattern-item n="ADVLrOBJr"/>
+        <pattern-item n="ADVL"/>
+        <pattern-item n="V"/>
+      </pattern>
+      <action>
+        <call-macro n="set_defnes2">
+          <with-param pos="1"/>
+          <with-param pos="3"/>
+        </call-macro>
+        <choose><when>
+          <test><and>
+            <equal><clip pos="1" part="syn_label"/><lit-tag v="@ADVL→"></lit-tag></equal>
+            <equal><clip pos="2" part="syn_label"/><lit-tag v="@ADVL→"></lit-tag></equal>
+          </and></test>
+          <call-macro n="set_pro_lowercase1"><with-param pos="3"/></call-macro>
+          <call-macro n="set_adv"><with-param pos="3"/></call-macro>
+          <out>
+            <chunk><clip pos="1" part="whole"/></chunk>
+            <b pos="1"/>
+            <chunk><clip pos="2" part="whole"/></chunk>
+            <b pos="2"/>
+            <chunk><clip pos="3" part="whole"/></chunk>
+            <var n="pro-blank"/><var n="pro"/>
+            <var n="adv-blank"/><var n="adv"/>
+          </out>
+        </when>
+        <otherwise>
+          <call-macro n="switch_cases"><with-param pos="1"/><with-param pos="2"/></call-macro>
+          <call-macro n="set_pro_verb_case1"><with-param pos="3"/></call-macro>
+          <call-macro n="set_adv"><with-param pos="3"/></call-macro>
+          <out>
+            <var n="pro"/><var n="pro-blank"/>
+            <chunk><clip pos="2" part="whole"/></chunk>
+            <var n="adv-blank"/><var n="adv"/>
+            <b pos="1"/>
+            <chunk><clip pos="3" part="whole"/></chunk>
+            <b pos="2"/>
+            <chunk><clip pos="1" part="whole"/></chunk>
+          </out>
+        </otherwise>
+        </choose>
+      </action>
+    </rule>
+    <rule comment="REGLA: ADVLrOBJr FV lOPRED
+                   Dan dieđán váddása => Det vet jeg er vanskelig
+                   Insert 'være'
+                   Insert dropped pronoun">
+      <pattern>
+        <pattern-item n="ADVLrOBJr"/>
+        <pattern-item n="FV"/>
+        <pattern-item n="lOPRED"/>
+      </pattern>
+      <action>
+        <call-macro n="set_defnes2">
+          <with-param pos="1"/>
+          <with-param pos="2"/>
+        </call-macro>
+        <call-macro n="set_pro_lowercase1"><with-param pos="2"/></call-macro>
+        <call-macro n="set_adv"><with-param pos="2"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <var n="pro-blank"/><var n="pro"/>
+          <var n="adv-blank"/><var n="adv"/>
+          <b pos="2"/>
+          <chunk>
+            <lit v="verb"/>
+            <lit-tag v="@+FMAINV.pres.p3.sg"/>
+            <lit v="{^"/>
+            <lit v="være"/><lit-tag v="vblex"/><clip pos="2" part="temps"/>
+            <lit v="$}"/>
+          </chunk>
+          <b/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: ADVLrOBJr ADVL FV lOPRED
+                   Dan gal dieđán váddása => Det vet jeg vel er vanskelig
+                   Insert 'være'
+                   Insert dropped pronoun">
+      <pattern>
+        <pattern-item n="ADVLrOBJr"/>
+        <pattern-item n="ADVL"/>
+        <pattern-item n="FV"/>
+        <pattern-item n="lOPRED"/>
+      </pattern>
+      <action>
+        <call-macro n="set_defnes2">
+          <with-param pos="1"/>
+          <with-param pos="3"/>
+        </call-macro>
+        <call-macro n="set_pro_lowercase1"><with-param pos="3"/></call-macro>
+        <call-macro n="set_adv"><with-param pos="3"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <var n="pro-blank"/><var n="pro"/>
+          <b pos="2"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+          <b pos="3"/>
+          <chunk>
+            <lit v="verb"/>
+            <lit-tag v="@+FMAINV.pres.p3.sg"/>
+            <lit v="{^"/>
+            <lit v="være"/><lit-tag v="vblex"/><clip pos="3" part="temps"/>
+            <lit v="$}"/>
+          </chunk>
+          <b/>
+          <chunk><clip pos="4" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+
+    <!-- FV lOBJ_RPRED -->
+    <rule comment="REGLA: FV lOBJ_RPRED
+                   Váldde biergasiid => Ta sakene
+                   geahččaledje jeđđet min = de prøvde å trøste oss">
+      <pattern>
+        <pattern-item n="FV"/>
+        <pattern-item n="lOBJ_lOPRED"/>
+      </pattern>
+      <action>
+        <call-macro n="set_defnes2">
+          <with-param pos="2"/>
+          <with-param pos="1"/>
+        </call-macro>
+        <call-macro n="set_pro_verb_case1"><with-param pos="1"/></call-macro>
+        <call-macro n="set_adv"><with-param pos="1"/></call-macro>
+        <out>
+          <var n="pro"/><var n="pro-blank"/>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+          <b pos="1"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: V lemq-obj lOBJ_RPRED
+                   -----
+                   fuomášuhttit máná => gjøre barnet oppmerksom på
+                   Might insert pro">
+      <pattern>
+        <pattern-item n="V"/>
+        <pattern-item n="lemq-obj"/>
+        <pattern-item n="lOBJ_lOPRED"/>
+      </pattern>
+      <action>
+        <call-macro n="set_defnes2">
+          <with-param pos="3"/>
+          <with-param pos="1"/>
+        </call-macro>
+        <call-macro n="set_pro_verb_case1"><with-param pos="1"/></call-macro>
+        <call-macro n="set_adv"><with-param pos="1"/></call-macro>
+        <out>
+          <var n="pro"/><var n="pro-blank"/>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+          <b pos="1"/>
+          <b pos="2"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <chunk><clip pos="2" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+
+    <!-- <rules: Single chunks -->
+    <rule comment="REGLA: FV
+                   dihte => jeg visste
+                   Insert dropped pronoun
+                   TODO: modify-case how? ('Dihte' should be 'Jeg visste', not 'jeg Visste')">
+      <pattern>
+        <pattern-item n="FV"/>
+      </pattern>
+      <action>
+        <call-macro n="set_pro_verb_case1"><with-param pos="1"/></call-macro>
+        <call-macro n="set_adv"><with-param pos="1"/></call-macro>
+        <out>
+          <var n="pro"/><var n="pro-blank"/>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <var n="adv-blank"/><var n="adv"/>
+        </out>
+      </action>
+    </rule>
+  </section-rules>
+</interchunk>

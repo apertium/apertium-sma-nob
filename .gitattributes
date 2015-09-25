@@ -1,0 +1,22 @@
+* text=auto !eol
+/AUTHORS -text
+/COPYING -text
+/ChangeLog -text
+/Makefile.am -text
+/NEWS -text
+/README -text
+/apertium-sma-nob.nob-sma.lrx -text
+/apertium-sma-nob.nob-sma.t1x -text
+/apertium-sma-nob.nob-sma.t2x -text
+/apertium-sma-nob.nob-sma.t3x -text
+/apertium-sma-nob.sma-nob.dix -text
+/apertium-sma-nob.sma-nob.lrx -text
+/apertium-sma-nob.sma-nob.t1x -text
+/apertium-sma-nob.sma-nob.t2x -text
+/apertium-sma-nob.sma-nob.t3x -text
+/apertium-sma-nob.sma-nob.t4x -text
+/autogen.sh -text
+/configure.ac -text
+/gt2apertium.cg3r -text
+/modes.xml -text svneol=unset#application/xml
+/rm-deriv-cmp.twol -text

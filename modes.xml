@@ -1,0 +1,677 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<modes>
+  <!-- sma-nob full and partial pipelines: -->
+  <mode name="sma-nob" install="yes">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf.hfst"/>
+      </program>
+      <program name="cg-proc">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+      <program name="cg-proc -1 -n -w">
+        <file name="sma-nob.syn.rlx.bin"/>
+      </program>
+      <program name="apertium-pretransfer"/>
+      <program name="lt-proc -b">
+        <file name="sma-nob.autobil.bin"/>
+      </program>
+      <program name="lrx-proc">
+        <file name="sma-nob.autolex.bin"/>
+      </program>
+      <program name="apertium-transfer -b">
+        <file name="apertium-sma-nob.sma-nob.t1x"/>
+        <file name="sma-nob.t1x.bin"/>
+      </program>
+      <program name="apertium-interchunk">
+        <file name="apertium-sma-nob.sma-nob.t2x"/>
+        <file name="sma-nob.t2x.bin"/>
+      </program>
+      <program name="apertium-interchunk">
+        <file name="apertium-sma-nob.sma-nob.t3x"/>
+        <file name="sma-nob.t3x.bin"/>
+      </program>
+      <program name="apertium-postchunk">
+        <file name="apertium-sma-nob.sma-nob.t4x"/>
+        <file name="sma-nob.t4x.bin"/>
+      </program>
+      <program name="lt-proc $1">
+        <file name="sma-nob.autogen.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="sma-nob-morph" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf.hfst"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="sma-nob-disam" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf.hfst"/>
+      </program>
+      <program name="cg-conv -a"/>
+      <program name="vislcg3 --trace --grammar">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="sma-nob-syntax" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf.hfst"/>
+      </program>
+      <program name="cg-proc">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+      <program name="cg-conv -a"/>
+      <program name="vislcg3 --trace --grammar">
+        <file name="sma-nob.syn.rlx.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="sma-nob-tagger" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf.hfst"/>
+      </program>
+      <program name="cg-proc">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+      <program name="cg-proc -1 -n -w">
+        <file name="sma-nob.syn.rlx.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="sma-nob-pretransfer" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf.hfst"/>
+      </program>
+      <program name="cg-proc">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+      <program name="cg-proc -1 -n -w">
+        <file name="sma-nob.syn.rlx.bin"/>
+      </program>
+      <program name="apertium-pretransfer"/>
+    </pipeline>
+  </mode>
+
+  <mode name="sma-nob-biltrans" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf.hfst"/>
+      </program>
+      <program name="cg-proc">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+      <program name="cg-proc -1 -n -w">
+        <file name="sma-nob.syn.rlx.bin"/>
+      </program>
+      <program name="apertium-pretransfer"/>
+      <program name="lt-proc -b">
+        <file name="sma-nob.autobil.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="sma-nob-lex" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf.hfst"/>
+      </program>
+      <program name="cg-proc">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+      <program name="cg-proc -1 -n -w">
+        <file name="sma-nob.syn.rlx.bin"/>
+      </program>
+      <program name="apertium-pretransfer"/>
+      <program name="lt-proc -b">
+        <file name="sma-nob.autobil.bin"/>
+      </program>
+      <program name="lrx-proc">
+        <file name="sma-nob.autolex.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="sma-nob-chunker" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf.hfst"/>
+      </program>
+      <program name="cg-proc">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+      <program name="cg-proc -1 -n -w">
+        <file name="sma-nob.syn.rlx.bin"/>
+      </program>
+      <program name="apertium-pretransfer"/>
+      <program name="lt-proc -b">
+        <file name="sma-nob.autobil.bin"/>
+      </program>
+      <program name="lrx-proc">
+        <file name="sma-nob.autolex.bin"/>
+      </program>
+      <program name="apertium-pretransfer"/>
+      <program name="apertium-transfer -t -b">
+        <file name="apertium-sma-nob.sma-nob.t1x"/>
+        <file name="sma-nob.t1x.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="sma-nob-interchunk1" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf.hfst"/>
+      </program>
+      <program name="cg-proc">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+      <program name="cg-proc -1 -n -w">
+        <file name="sma-nob.syn.rlx.bin"/>
+      </program>
+      <program name="apertium-pretransfer"/>
+      <program name="lt-proc -b">
+        <file name="sma-nob.autobil.bin"/>
+      </program>
+      <program name="lrx-proc">
+        <file name="sma-nob.autolex.bin"/>
+      </program>
+      <program name="apertium-transfer -b">
+        <file name="apertium-sma-nob.sma-nob.t1x"/>
+        <file name="sma-nob.t1x.bin"/>
+      </program>
+      <program name="apertium-interchunk -t">
+        <file name="apertium-sma-nob.sma-nob.t2x"/>
+        <file name="sma-nob.t2x.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="sma-nob-interchunk2" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf.hfst"/>
+      </program>
+      <program name="cg-proc">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+      <program name="cg-proc -1 -n -w">
+        <file name="sma-nob.syn.rlx.bin"/>
+      </program>
+      <program name="apertium-pretransfer"/>
+      <program name="lt-proc -b">
+        <file name="sma-nob.autobil.bin"/>
+      </program>
+      <program name="lrx-proc">
+        <file name="sma-nob.autolex.bin"/>
+      </program>
+      <program name="apertium-transfer -b">
+        <file name="apertium-sma-nob.sma-nob.t1x"/>
+        <file name="sma-nob.t1x.bin"/>
+      </program>
+      <program name="apertium-interchunk">
+        <file name="apertium-sma-nob.sma-nob.t2x"/>
+        <file name="sma-nob.t2x.bin"/>
+      </program>
+      <program name="apertium-interchunk -t">
+        <file name="apertium-sma-nob.sma-nob.t3x"/>
+        <file name="sma-nob.t3x.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="sma-nob-postchunk" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf.hfst"/>
+      </program>
+      <program name="cg-proc">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+      <program name="cg-proc -1 -n -w">
+        <file name="sma-nob.syn.rlx.bin"/>
+      </program>
+      <program name="apertium-pretransfer"/>
+      <program name="lt-proc -b">
+        <file name="sma-nob.autobil.bin"/>
+      </program>
+      <program name="lrx-proc">
+        <file name="sma-nob.autolex.bin"/>
+      </program>
+      <program name="apertium-transfer -b">
+        <file name="apertium-sma-nob.sma-nob.t1x"/>
+        <file name="sma-nob.t1x.bin"/>
+      </program>
+      <program name="apertium-interchunk">
+        <file name="apertium-sma-nob.sma-nob.t2x"/>
+        <file name="sma-nob.t2x.bin"/>
+      </program>
+      <program name="apertium-interchunk">
+        <file name="apertium-sma-nob.sma-nob.t3x"/>
+        <file name="sma-nob.t3x.bin"/>
+      </program>
+      <program name="apertium-postchunk">
+        <file name="apertium-sma-nob.sma-nob.t4x"/>
+        <file name="sma-nob.t4x.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="sma-nob-dgen" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf.hfst"/>
+      </program>
+      <program name="cg-proc">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+      <program name="cg-proc -1 -n -w">
+        <file name="sma-nob.syn.rlx.bin"/>
+      </program>
+      <program name="apertium-pretransfer"/>
+      <program name="lt-proc -b">
+        <file name="sma-nob.autobil.bin"/>
+      </program>
+      <program name="lrx-proc">
+        <file name="sma-nob.autolex.bin"/>
+      </program>
+      <program name="apertium-transfer -b">
+        <file name="apertium-sma-nob.sma-nob.t1x"/>
+        <file name="sma-nob.t1x.bin"/>
+      </program>
+      <program name="apertium-interchunk">
+        <file name="apertium-sma-nob.sma-nob.t2x"/>
+        <file name="sma-nob.t2x.bin"/>
+      </program>
+      <program name="apertium-interchunk">
+        <file name="apertium-sma-nob.sma-nob.t3x"/>
+        <file name="sma-nob.t3x.bin"/>
+      </program>
+      <program name="apertium-postchunk">
+        <file name="apertium-sma-nob.sma-nob.t4x"/>
+        <file name="sma-nob.t4x.bin"/>
+      </program>
+      <program name="lt-proc -d">
+        <file name="sma-nob.autogen.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+
+  <!-- Untrimmed (and with compounding) sma-nob: -->
+  <mode name="usma-nob" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf-untrimmed.hfst"/>
+      </program>
+      <program name="cg-proc">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+      <program name="cg-proc -1 -n -w">
+        <file name="sma-nob.syn.rlx.bin"/>
+      </program>
+      <program name="apertium-pretransfer"/>
+      <program name="lt-proc -b">
+        <file name="sma-nob.autobil.bin"/>
+      </program>
+      <program name="lrx-proc">
+        <file name="sma-nob.autolex.bin"/>
+      </program>
+      <program name="apertium-transfer -b">
+        <file name="apertium-sma-nob.sma-nob.t1x"/>
+        <file name="sma-nob.t1x.bin"/>
+      </program>
+      <program name="apertium-interchunk">
+        <file name="apertium-sma-nob.sma-nob.t2x"/>
+        <file name="sma-nob.t2x.bin"/>
+      </program>
+      <program name="apertium-interchunk">
+        <file name="apertium-sma-nob.sma-nob.t3x"/>
+        <file name="sma-nob.t3x.bin"/>
+      </program>
+      <program name="apertium-postchunk">
+        <file name="apertium-sma-nob.sma-nob.t4x"/>
+        <file name="sma-nob.t4x.bin"/>
+      </program>
+      <program name="lt-proc $1">
+        <file name="sma-nob.autogen.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="usma-nob-morph" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf-untrimmed.hfst"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="usma-nob-disam" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf-untrimmed.hfst"/>
+      </program>
+      <program name="cg-conv -a"/>
+      <program name="vislcg3 --trace --grammar">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="usma-nob-syntax" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf-untrimmed.hfst"/>
+      </program>
+      <program name="cg-proc">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+      <program name="cg-conv -a"/>
+      <program name="vislcg3 --trace --grammar">
+        <file name="sma-nob.syn.rlx.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="usma-nob-tagger" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf-untrimmed.hfst"/>
+      </program>
+      <program name="cg-proc">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+      <program name="cg-proc -1 -n -w">
+        <file name="sma-nob.syn.rlx.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="usma-nob-pretransfer" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf-untrimmed.hfst"/>
+      </program>
+      <program name="cg-proc">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+      <program name="cg-proc -1 -n -w">
+        <file name="sma-nob.syn.rlx.bin"/>
+      </program>
+      <program name="apertium-pretransfer"/>
+    </pipeline>
+  </mode>
+
+  <mode name="usma-nob-biltrans" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf-untrimmed.hfst"/>
+      </program>
+      <program name="cg-proc">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+      <program name="cg-proc -1 -n -w">
+        <file name="sma-nob.syn.rlx.bin"/>
+      </program>
+      <program name="apertium-pretransfer"/>
+      <program name="lt-proc -b">
+        <file name="sma-nob.autobil.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="usma-nob-lex" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf-untrimmed.hfst"/>
+      </program>
+      <program name="cg-proc">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+      <program name="cg-proc -1 -n -w">
+        <file name="sma-nob.syn.rlx.bin"/>
+      </program>
+      <program name="apertium-pretransfer"/>
+      <program name="lt-proc -b">
+        <file name="sma-nob.autobil.bin"/>
+      </program>
+      <program name="lrx-proc">
+        <file name="sma-nob.autolex.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="usma-nob-chunker" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf-untrimmed.hfst"/>
+      </program>
+      <program name="cg-proc">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+      <program name="cg-proc -1 -n -w">
+        <file name="sma-nob.syn.rlx.bin"/>
+      </program>
+      <program name="apertium-pretransfer"/>
+      <program name="lt-proc -b">
+        <file name="sma-nob.autobil.bin"/>
+      </program>
+      <program name="lrx-proc">
+        <file name="sma-nob.autolex.bin"/>
+      </program>
+      <program name="apertium-pretransfer"/>
+      <program name="apertium-transfer -t -b">
+        <file name="apertium-sma-nob.sma-nob.t1x"/>
+        <file name="sma-nob.t1x.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="usma-nob-interchunk1" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf-untrimmed.hfst"/>
+      </program>
+      <program name="cg-proc">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+      <program name="cg-proc -1 -n -w">
+        <file name="sma-nob.syn.rlx.bin"/>
+      </program>
+      <program name="apertium-pretransfer"/>
+      <program name="lt-proc -b">
+        <file name="sma-nob.autobil.bin"/>
+      </program>
+      <program name="lrx-proc">
+        <file name="sma-nob.autolex.bin"/>
+      </program>
+      <program name="apertium-transfer -b">
+        <file name="apertium-sma-nob.sma-nob.t1x"/>
+        <file name="sma-nob.t1x.bin"/>
+      </program>
+      <program name="apertium-interchunk -t">
+        <file name="apertium-sma-nob.sma-nob.t2x"/>
+        <file name="sma-nob.t2x.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="usma-nob-interchunk2" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf-untrimmed.hfst"/>
+      </program>
+      <program name="cg-proc">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+      <program name="cg-proc -1 -n -w">
+        <file name="sma-nob.syn.rlx.bin"/>
+      </program>
+      <program name="apertium-pretransfer"/>
+      <program name="lt-proc -b">
+        <file name="sma-nob.autobil.bin"/>
+      </program>
+      <program name="lrx-proc">
+        <file name="sma-nob.autolex.bin"/>
+      </program>
+      <program name="apertium-transfer -b">
+        <file name="apertium-sma-nob.sma-nob.t1x"/>
+        <file name="sma-nob.t1x.bin"/>
+      </program>
+      <program name="apertium-interchunk">
+        <file name="apertium-sma-nob.sma-nob.t2x"/>
+        <file name="sma-nob.t2x.bin"/>
+      </program>
+      <program name="apertium-interchunk -t">
+        <file name="apertium-sma-nob.sma-nob.t3x"/>
+        <file name="sma-nob.t3x.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="usma-nob-postchunk" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf-untrimmed.hfst"/>
+      </program>
+      <program name="cg-proc">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+      <program name="cg-proc -1 -n -w">
+        <file name="sma-nob.syn.rlx.bin"/>
+      </program>
+      <program name="apertium-pretransfer"/>
+      <program name="lt-proc -b">
+        <file name="sma-nob.autobil.bin"/>
+      </program>
+      <program name="lrx-proc">
+        <file name="sma-nob.autolex.bin"/>
+      </program>
+      <program name="apertium-transfer -b">
+        <file name="apertium-sma-nob.sma-nob.t1x"/>
+        <file name="sma-nob.t1x.bin"/>
+      </program>
+      <program name="apertium-interchunk">
+        <file name="apertium-sma-nob.sma-nob.t2x"/>
+        <file name="sma-nob.t2x.bin"/>
+      </program>
+      <program name="apertium-interchunk">
+        <file name="apertium-sma-nob.sma-nob.t3x"/>
+        <file name="sma-nob.t3x.bin"/>
+      </program>
+      <program name="apertium-postchunk">
+        <file name="apertium-sma-nob.sma-nob.t4x"/>
+        <file name="sma-nob.t4x.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="usma-nob-dgen" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf-untrimmed.hfst"/>
+      </program>
+      <program name="cg-proc">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+      <program name="cg-proc -1 -n -w">
+        <file name="sma-nob.syn.rlx.bin"/>
+      </program>
+      <program name="apertium-pretransfer"/>
+      <program name="lt-proc -b">
+        <file name="sma-nob.autobil.bin"/>
+      </program>
+      <program name="lrx-proc">
+        <file name="sma-nob.autolex.bin"/>
+      </program>
+      <program name="apertium-transfer -b">
+        <file name="apertium-sma-nob.sma-nob.t1x"/>
+        <file name="sma-nob.t1x.bin"/>
+      </program>
+      <program name="apertium-interchunk">
+        <file name="apertium-sma-nob.sma-nob.t2x"/>
+        <file name="sma-nob.t2x.bin"/>
+      </program>
+      <program name="apertium-interchunk">
+        <file name="apertium-sma-nob.sma-nob.t3x"/>
+        <file name="sma-nob.t3x.bin"/>
+      </program>
+      <program name="apertium-postchunk">
+        <file name="apertium-sma-nob.sma-nob.t4x"/>
+        <file name="sma-nob.t4x.bin"/>
+      </program>
+      <program name="lt-proc -d">
+        <file name="sma-nob.autogen.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+
+  <!-- Modes not used by regular sma-nob: -->
+  <mode name="sma-nob-val" install="no">
+    <pipeline>
+      <program name="hfst-proc --weight-classes 1 -w -p">
+        <file name="sma-nob.automorf.hfst"/>
+      </program>
+      <program name="cg-proc -1">
+        <file name="sma-nob.mor.rlx.bin"/>
+      </program>
+      <program name="cg-conv -a"/>
+      <program name="vislcg3 --trace --grammar">
+        <file name="sma-nob.val.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="sma-nob-postchunk-from-transfer" install="no">
+    <pipeline>
+      <program name="apertium-transfer">
+        <file name="apertium-sma-nob.sma-nob.t1x"/>
+        <file name="sma-nob.t1x.bin"/>
+        <file name="sma-nob.autobil.bin"/>
+      </program>
+      <program name="apertium-interchunk">
+        <file name="apertium-sma-nob.sma-nob.t2x"/>
+        <file name="sma-nob.t2x.bin"/>
+      </program>
+      <program name="apertium-interchunk">
+        <file name="apertium-sma-nob.sma-nob.t3x"/>
+        <file name="sma-nob.t3x.bin"/>
+      </program>
+      <program name="apertium-postchunk">
+        <file name="apertium-sma-nob.sma-nob.t4x"/>
+        <file name="sma-nob.t4x.bin"/>
+      </program>
+    </pipeline>
+  </mode>
+
+  <mode name="nob-sma-pretransfer" install="no">
+    <pipeline>
+      <program name="lt-proc -w -e">
+        <file name="nob-sma.automorf.bin"/>
+      </program>
+      <program name="cg-proc  -w">
+        <file name="nob-sma.rlx.bin"/>
+      </program>
+      <program name="apertium-tagger -g">
+        <file name="nob-sma.prob"/>
+      </program>
+      <program name="apertium-pretransfer"/>
+    </pipeline>
+  </mode>
+
+
+</modes>

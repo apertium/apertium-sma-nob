@@ -1,0 +1,1212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copied from apertium-sme-nob -->
+
+<!--
+This is the second pass. Responsibilities of this file include:
+
+* Simple anaphora resolution; we keep track of gender of p3 sg
+  subjects using the variables "ana_m_f" and "ana_gen", applying
+  this to GD-tagged SN's and all FV's.
+  * See rule: FV, SN
+  * Note: this only applies gender in a forward direction, applying gender
+    from the noun to pronoun in 'Pron is N' constructions happens in t3x
+* Keeping track of verb temps for eg. Actio.Ess
+  (which is tagged TD) using the variable "ana_temps"
+  * See rule: FV, V.TD
+* Co-ordination
+  * Removes superfluous prepositions
+  * See rule: SN CNP SN, FV CVP FV
+* Moving postpositions
+  * See rule: SN ADPOS -> ADPOS SN
+* Removing prepositions when case is governed by adpositions
+  * See rule: PR SN_RPOST adpos
+* Removing essive caseprep ('som') after vcop
+  * See rule: vcop-FV caseprep-PR.ess
+* Removing Pcle.qst and putting the qst tag on the preceding chunk,
+  so that they're treated as if there were no space
+  * See rule: SN PCLE.qst
+  * PCLE.qst variants could probably be added to many of the other rules here too,
+    still TODO, but the most likely seem to be covered.
+
+TODO:
+* relatives (SN "who" SV SV* -> SN), both 'real' and those that started life as Agent Constructions
+* 'adpos' covers both Pr and Po, tag them as such in t1x so that the rules here don't overgeneralise
+
+
+DEF-CAT NAMING SCHEME:
+                       chunklemma-CHUNKTAG_SYNTAG.tag.tag
+
+where the SYNTAG part may have an l or r before or after to signify the arrow
+(where l corresponds to ← and r to →).
+So "det-SN_rOBJ.nom" would include chunks like det<SN><@→OBJ><p1><mf><du><nom>{...}
+
+-->
+
+<interchunk>
+
+  <section-def-cats>
+    <def-cat n="CLB">
+      <cat-item tags="CLB.*"/>
+    </def-cat>
+    <def-cat n="SA">
+      <cat-item tags="SA"/>
+      <cat-item tags="SA.*"/>
+    </def-cat>
+    <def-cat n="SN">
+      <cat-item tags="SN"/>
+      <cat-item tags="SN.*"/>
+    </def-cat>
+    <def-cat n="SN_rN">
+      <cat-item tags="SN.@→N.*"/>
+    </def-cat>
+    <def-cat n="SN.nom">
+      <cat-item tags="SN.*.nom"/>
+    </def-cat>
+    <def-cat n="V">
+      <cat-item tags="SV.*"/>
+    </def-cat>
+    <def-cat n="lADVL">
+      <cat-item lemma="adv" tags="@←ADVL"/>
+    </def-cat>
+    <def-cat n="prn-lADVL">
+      <cat-item lemma="prn" tags="SN.@←ADVL.*"/>
+    </def-cat>
+    <def-cat n="PR">
+      <cat-item tags="PR"/>
+      <cat-item tags="PR.*"/>
+    </def-cat>
+    <def-cat n="caseprep-PR">
+      <cat-item lemma="caseprep" tags="PR"/>
+      <cat-item lemma="caseprep" tags="PR.*"/>
+    </def-cat>
+    <def-cat n="caseprep-PR.ess">
+      <cat-item lemma="caseprep" tags="PR.ess"/>
+      <cat-item lemma="caseprep" tags="PR.Ess"/>
+    </def-cat>
+    <def-cat n="SN_PREPl">
+      <cat-item tags="SN.@P←.*"/>
+      <cat-item lemma="ref" tags="@P←.*"/>
+    </def-cat>
+    <def-cat n="SN_rPOST">
+      <cat-item tags="SN.@→P.*"/>
+      <cat-item lemma="ref" tags="@→P.*"/>
+    </def-cat>
+    <def-cat n="SN_rADVL">
+      <cat-item tags="SN.@→ADVL.*"/>
+    </def-cat>
+    <def-cat n="adpos">
+      <cat-item lemma="adpos" tags="*"/>
+    </def-cat>
+    <def-cat n="lOBJ">
+      <cat-item tags="SV.@←OBJ.*"/>
+      <cat-item tags="SN.@←OBJ.*"/>
+      <cat-item tags="SA.@←OBJ.*"/>
+    </def-cat>
+    <def-cat n="CNP">
+      <cat-item lemma="conj" tags="@CNP.cnjcoo"/>
+    </def-cat>
+    <def-cat n="CVP">
+      <cat-item lemma="conj" tags="@CVP.cnjcoo"/>
+    </def-cat>
+    <def-cat n="FV">
+      <cat-item tags="SV.@+FMAINV"/>
+      <cat-item tags="SV.@+FMAINV.*"/>
+      <cat-item tags="SV.@+FAUXV"/>
+      <cat-item tags="SV.@+FAUXV.*"/>
+    </def-cat>
+    <def-cat n="vcop-FV">
+      <cat-item lemma="vcop" tags="SV.@+FMAINV"/>
+      <cat-item lemma="vcop" tags="SV.@+FMAINV.*"/>
+      <cat-item lemma="vcop" tags="SV.@+FAUXV"/>
+      <cat-item lemma="vcop" tags="SV.@+FAUXV.*"/>
+    </def-cat>
+    <def-cat n="V.TD">
+      <cat-item tags="SV.@←OBJ.TD.*"/>
+    </def-cat>
+    <def-cat n="SN_rN.gen">
+      <cat-item tags="SN.@→N.*.gen"/>
+    </def-cat>
+    <def-cat n="ADVL.loc">
+      <cat-item tags="SN.@ADVL.*.loc"/>
+      <cat-item tags="SN.@ADVL.*.loc.*"/>
+      <cat-item tags="SN.@←ADVL.*.loc"/>
+      <cat-item tags="SN.@←ADVL.*.loc.*"/>
+      <cat-item tags="SN.@ADVL→.*.loc"/>
+      <cat-item tags="SN.@ADVL→.*.loc.*"/>
+      <cat-item tags="SN.@-FADVL.*.loc"/>
+      <cat-item tags="SN.@-FADVL.*.loc.*"/>
+      <cat-item tags="SN.@-F←ADVL.*.loc"/>
+      <cat-item tags="SN.@-F←ADVL.*.loc.*"/>
+      <cat-item tags="SN.@-FADVL→.*.loc"/>
+      <cat-item tags="SN.@-FADVL→.*.loc.*"/>
+    </def-cat>
+    <def-cat n="PCLE.qst">
+      <cat-item tags="@PCLE.qst"/>
+      <cat-item tags="@PCLE.qst.*"/>
+    </def-cat>
+  </section-def-cats>
+
+  <section-def-attrs>
+    <def-attr n="a_sintagma">
+      <attr-item tags="SN"/>
+      <attr-item tags="SV"/>
+      <attr-item tags="SA"/>
+    </def-attr>
+    <def-attr n="gen">
+      <attr-item tags="m"/>
+      <attr-item tags="f"/>
+      <attr-item tags="mf"/>
+      <attr-item tags="nt"/>
+      <attr-item tags="GD"/>
+      <attr-item tags="GD_pers"/>
+    </def-attr>
+    <def-attr n="case">
+      <attr-item tags="nom"/>
+      <attr-item tags="acc"/>
+      <attr-item tags="gen"/>
+      <attr-item tags="com"/>
+      <attr-item tags="ess"/>
+      <attr-item tags="ill"/>
+      <attr-item tags="loc"/>
+      <attr-item tags="ine"/>
+      <attr-item tags="ela"/>
+    </def-attr>
+    <def-attr n="a_caseprep_verb">
+      <attr-item tags="ill-NIL"/>
+      <attr-item tags="ill-med"/>
+      <attr-item tags="ill-på"/>
+      <attr-item tags="ill-av"/>
+      <attr-item tags="loc-for"/>
+      <attr-item tags="loc-om"/>
+      <attr-item tags="loc-som"/>
+      <attr-item tags="loc-fra"/>
+      <attr-item tags="NC"/>
+    </def-attr>
+    <def-attr n="art">
+      <attr-item tags="def"/>
+      <attr-item tags="ind"/>
+      <attr-item tags="DD"/>
+    </def-attr>
+    <def-attr n="temps">
+      <attr-item tags="Prs"/>
+      <attr-item tags="Prt"/>
+      <attr-item tags="pres"/>
+      <attr-item tags="pret"/>
+      <attr-item tags="Inf"/>
+      <attr-item tags="inf"/>
+      <attr-item tags="Imprt"/>
+      <attr-item tags="imp"/>
+      <attr-item tags="PrfPrc"/>
+      <attr-item tags="pp"/>
+      <attr-item tags="TD"/>
+    </def-attr>
+    <def-attr n="voice">
+      <attr-item tags="pass"/>
+    </def-attr>
+    <def-attr n="pers">
+      <attr-item tags="p1"/>
+      <attr-item tags="p2"/>
+      <attr-item tags="p3"/>
+    </def-attr>
+    <def-attr n="nbr">
+      <attr-item tags="Sg"/>
+      <attr-item tags="Du"/>
+      <attr-item tags="Pl"/>
+      <attr-item tags="sg"/>
+      <attr-item tags="du"/>
+      <attr-item tags="pl"/>
+      <attr-item tags="ND"/>
+      <attr-item tags="sp"/>
+    </def-attr>
+    <def-attr n="neg">
+      <attr-item tags="ConNeg"/>
+      <attr-item tags="Neg"/>
+    </def-attr>
+    <def-attr n="mode">
+      <attr-item tags="qst"/>
+    </def-attr>
+    <def-attr n="modality">
+      <attr-item tags="Ind"/>
+      <attr-item tags="Cond"/>
+      <attr-item tags="Cond2"/>
+      <attr-item tags="Cond3"/>
+      <attr-item tags="Pot"/>
+    </def-attr>
+    <def-attr n="animacy">
+      <attr-item tags="impers"/>
+      <attr-item tags="pers"/>
+    </def-attr>
+    <def-attr n="syn_label">
+      <attr-item tags="@→A"/>
+      <attr-item tags="@A←"/>
+      <attr-item tags="@←ADVL"/>
+      <attr-item tags="@→ADVL"/>
+      <attr-item tags="@ADVL"/>
+      <attr-item tags="@ADVL←"/>
+      <attr-item tags="@ADVL→"/>
+      <attr-item tags="@ADVL→CS"/>
+      <attr-item tags="@ADVL←OBJ"/>
+      <attr-item tags="@ADVL→SUBJ"/>
+      <attr-item tags="@APP"/>
+      <attr-item tags="@APP-ADVL←"/>
+      <attr-item tags="@APP-N←"/>
+      <attr-item tags="@APP-Num←"/>
+      <attr-item tags="@APP-Pron←"/>
+      <attr-item tags="@APP→Pron"/>
+      <attr-item tags="@→CC"/>
+      <attr-item tags="@CNP"/>
+      <attr-item tags="@COMP-CS←"/>
+      <attr-item tags="@CVP"/>
+      <attr-item tags="@-F←ADVL"/>
+      <attr-item tags="@-FADVL"/>
+      <attr-item tags="@-FADVL→"/>
+      <attr-item tags="@-FAUXV"/>
+      <attr-item tags="@\+FAUXV"/>
+      <attr-item tags="@+FAUXV"/>
+      <attr-item tags="@-FMAINV"/>
+      <attr-item tags="@\+FMAINV"/>
+      <attr-item tags="@+FMAINV"/>
+      <attr-item tags="@-F←OBJ"/>
+      <attr-item tags="@-FOBJ"/>
+      <attr-item tags="@-FOBJ→"/>
+      <attr-item tags="@-F←OPRED"/>
+      <attr-item tags="@-FOPRED→"/>
+      <attr-item tags="@-F←SPRED"/>
+      <attr-item tags="@-FSPRED→"/>
+      <attr-item tags="@-FSUBJ→"/>
+      <attr-item tags="←hab→"/>
+      <attr-item tags="@HNOUN"/>
+      <attr-item tags="@INTERJ"/>
+      <attr-item tags="@→N"/>
+      <attr-item tags="@N←"/>
+      <attr-item tags="@N"/>
+      <attr-item tags="@→Num;"/>
+      <attr-item tags="@→Num"/>
+      <attr-item tags="@Num←"/>
+      <attr-item tags="@←OBJ"/>
+      <attr-item tags="@OBJ"/>
+      <attr-item tags="@OBJ→"/>
+      <attr-item tags="@OBJ→SPRED"/>
+      <attr-item tags="@-OPRED→"/>
+      <attr-item tags="@←OPRED"/>
+      <attr-item tags="@OPRED"/>
+      <attr-item tags="@OPRED→"/>
+      <attr-item tags="@→P"/>
+      <attr-item tags="@P←"/>
+      <attr-item tags="@PCLE"/>
+      <attr-item tags="@←PPRED"/>
+      <attr-item tags="@PPRED"/>
+      <attr-item tags="@→Pron"/>
+      <attr-item tags="@Pron←"/>
+      <attr-item tags="@-SPRED→"/>
+      <attr-item tags="@←SPRED"/>
+      <attr-item tags="@SPRED"/>
+      <attr-item tags="@SPRED→"/>
+      <attr-item tags="@SPRED←OBJ"/>
+      <attr-item tags="@←SUBJ"/>
+      <attr-item tags="@SUBJ"/>
+      <attr-item tags="@SUBJ→"/>
+      <attr-item tags="@SUBJ←ADVL"/>
+      <attr-item tags="@SUBJ←OBJ"/>
+      <attr-item tags="@VOC"/>
+      <attr-item tags="@X"/>
+    </def-attr>
+  </section-def-attrs>
+
+  <section-def-vars>
+    <def-var n="tmp"/>
+    <def-var n="caseprep_verb" c="For changing/removing prepositions based on verb argument structure"/>
+    <def-var n="caseprep"      c="nob preposition (whole chunk) based on sme case, perhaps changed based on caseprep_verb"/>
+    <def-var n="c_name"/>
+    <def-var n="c_tags"/>
+    <def-var n="ana_temps" c="set by FV's, used on TD's"/>
+    <def-var n="ana_m_f"      c="p3 sg gender (only m or f) set by SUBJ's, used on GD_pers's, stored in FV's for t3x pro insertion"/>
+    <def-var n="ana_m_f_pers" c="p3 sg gender (only m or f) set by pers-tagged chunks, used on GD_pers's, stored in pers-tagged FV's for t3x pro insertion"/>
+    <def-var n="ana_gen"      c="p3 sg gender (m, f, or nt) set by SUBJ's, used on GD's, stored in FV's for t3x pro insertion"/>
+    <def-var n="ana_nbr" c="p3 number, set only if ana_gen is set, used on ND's."/>
+  </section-def-vars>
+
+  <section-def-macros>
+    <def-macro n="switch_cases" npar="2"
+               c="Simply switch the typographic cases (upper/lower/capital) of the two arguments.">
+      <let><var n="tmp"/><get-case-from pos="1"><clip pos="1" part="lemh"/></get-case-from></let>
+      <let><clip pos="1" part="lemh"/><get-case-from pos="2"><clip pos="1" part="lemh"/></get-case-from></let>
+      <modify-case><clip pos="2" part="lemh"/><var n="tmp"/></modify-case>
+    </def-macro>
+
+    <def-macro n="tag_qst" npar="1"
+               c="Add the qst tag, preferably after 'neg' or defnes tags.
+                  TODO: perhaps it would be simpler to just explicitly re-set the chunk tags
+                  instead of all this concatting.">
+      <choose>
+        <when>
+          <test><not><equal><clip pos="1" part="neg"/><lit v=""/></equal></not></test>
+          <let>
+            <clip pos="1" part="neg"/>
+            <concat><clip pos="1" part="neg"/><lit-tag v="qst"/></concat>
+          </let>
+        </when>
+        <when c="Unfortunately, 'clip' is case-insensitive so modality (Ind) conflicts with defnes (ind).
+                 Using positive checks works around this.">
+          <test><or>
+            <equal><clip pos="1" part="art"/><lit-tag v="ind"/></equal>
+            <equal><clip pos="1" part="art"/><lit-tag v="def"/></equal>
+            <equal><clip pos="1" part="art"/><lit-tag v="DD"/></equal>
+          </or></test>
+          <let>
+            <clip pos="1" part="art"/>
+            <concat><clip pos="1" part="art"/><lit-tag v="qst"/></concat>
+          </let>
+        </when>
+        <when>
+          <test><not><equal><clip pos="1" part="syn_label"/><lit v=""/></equal></not></test>
+          <let>
+            <clip pos="1" part="syn_label"/>
+            <concat><clip pos="1" part="syn_label"/><lit-tag v="qst"/></concat>
+          </let>
+        </when>
+        <otherwise>
+          <let>
+            <clip pos="1" part="lemh"/>
+            <concat><clip pos="1" part="lemh"/><lit-tag v="qst"/></concat>
+          </let>
+        </otherwise>
+      </choose>
+    </def-macro>
+
+    <def-macro n="clean_SN_of_adpos" npar="1"
+               c="arg.1: SN, might be pronoun">
+      <choose>
+        <when>
+          <test><or>
+            <equal caseless="yes"><clip pos="1" part="lemh"/><lit v="prn"/></equal>
+            <equal caseless="yes"><clip pos="1" part="lemh"/><lit v="det"/></equal>
+          </or></test>
+          <let><clip pos="1" part="case"/><lit-tag v="acc"/></let>
+        </when>
+        <otherwise>
+          <let><clip pos="1" part="case"/><lit v=""/></let>
+        </otherwise>
+      </choose>
+    </def-macro>
+
+    <def-macro n="set_c_name3" npar="3" c="args should be given in order of output
+                                           Case of whole chunk is based on first element.">
+      <let>
+        <var n="c_name"/>
+        <concat>
+          <clip pos="1" part="lemh"/>
+          <lit v="_"/>
+          <clip pos="2" part="lemh"/>
+          <lit v="_"/>
+          <clip pos="3" part="lemh"/>
+        </concat>
+      </let>
+      <modify-case><var n="c_name"/><clip pos="1" part="lemh"/></modify-case>
+    </def-macro>
+
+    <def-macro n="set_c_tags2" npar="2"
+               c="For conjunctions.
+                  We might get pronouns, which t1x doesn't give defnes tags;
+                  in that case, just use the tags from the other conjunct.
+                  (Might want to put defnes on pronouns in t1x?)">
+      <let><var n="c_tags"/><clip pos="2" part="tags"/></let>
+      <choose><when>
+        <test><not><equal><clip pos="1" part="art"/><lit v=""/></equal></not></test>
+        <choose><when>
+          <test><or>
+            <equal><clip pos="2" part="art"/><lit v=""/></equal>
+            <equal><clip pos="2" part="syn_label"/><lit v=""/></equal>
+          </or></test>
+          <let><var n="c_tags"/><clip pos="1" part="tags"/></let>
+        </when></choose>
+      </when></choose>
+    </def-macro>
+
+    <def-macro n="set_ana_temps" npar="1"
+               c="arg.1: verb">
+      <choose><when>
+        <test><not><equal><clip pos="1" part="temps"/><lit v=""/></equal></not></test>
+        <let><var n="ana_temps"/><clip pos="1" part="temps"/></let>
+      </when></choose>
+    </def-macro>
+    <def-macro n="apply_ana_temps" npar="1"
+               c="arg.1: verb">
+      <choose><when>
+        <test><and>
+          <not><equal><var n="ana_temps"/><lit v=""/></equal></not>
+          <equal><clip pos="1" part="voice"/><lit v=""/></equal>
+        </and></test>
+        <let><clip pos="1" part="temps"/><var n="ana_temps"/></let>
+      </when></choose>
+    </def-macro>
+
+    <def-macro n="set_caseprep" npar="1"
+               c="arg.1: verb">
+      <choose><when>
+        <test><not><equal><clip pos="1" part="a_caseprep_verb"/><lit v=""/></equal></not></test>
+        <let><var n="caseprep_verb"/><clip pos="1" part="a_caseprep_verb"/></let>
+      </when></choose>
+    </def-macro>
+
+    <def-macro n="modify_caseprep" npar="1"
+               c="arg.1: PR-caseprep">
+      <let><var n="tmp"/><lit v=""/></let>
+      <choose c="maybe let caseprep have the wanted preposition lemma">
+        <when>
+          <test><and>
+            <equal><var n="caseprep_verb"/><lit-tag v="ill-på"/></equal>
+            <equal><clip pos="1" part="case"/><lit-tag v="ill"/></equal>
+          </and></test>
+          <let><var n="tmp"/><lit v="på"/></let>
+        </when>
+        <when>
+          <test><and>
+            <equal><var n="caseprep_verb"/><lit-tag v="ill-med"/></equal>
+            <equal><clip pos="1" part="case"/><lit-tag v="ill"/></equal>
+          </and></test>
+          <let><var n="tmp"/><lit v="med"/></let>
+        </when>
+        <when>
+          <test><and>
+            <equal><var n="caseprep_verb"/><lit-tag v="ill-av"/></equal>
+            <equal><clip pos="1" part="case"/><lit-tag v="ill"/></equal>
+          </and></test>
+          <let><var n="tmp"/><lit v="av"/></let>
+        </when>
+        <when>
+          <test><and>
+            <equal><var n="caseprep_verb"/><lit-tag v="loc-for"/></equal>
+            <equal><clip pos="1" part="case"/><lit-tag v="loc"/></equal>
+          </and></test>
+          <let><var n="tmp"/><lit v="for"/></let>
+        </when>
+        <when>
+          <test><and>
+            <equal><var n="caseprep_verb"/><lit-tag v="loc-om"/></equal>
+            <equal><clip pos="1" part="case"/><lit-tag v="loc"/></equal>
+          </and></test>
+          <let><var n="tmp"/><lit v="om"/></let>
+        </when>
+        <when>
+          <test><and>
+            <equal><var n="caseprep_verb"/><lit-tag v="loc-som"/></equal>
+            <equal><clip pos="1" part="case"/><lit-tag v="loc"/></equal>
+          </and></test>
+          <let><var n="tmp"/><lit v="som"/></let>
+        </when>
+        <when>
+          <test><and>
+            <equal><var n="caseprep_verb"/><lit-tag v="loc-fra"/></equal>
+            <equal><clip pos="1" part="case"/><lit-tag v="loc"/></equal>
+          </and></test>
+          <let><var n="tmp"/><lit v="fra"/></let>
+        </when>
+        <when>
+          <test><and>
+            <equal><var n="caseprep_verb"/><lit-tag v="ill-NIL"/></equal>
+            <equal><clip pos="1" part="case"/><lit-tag v="ill"/></equal>
+          </and></test>
+          <let><var n="tmp"/><lit v="NIL"/></let>
+        </when>
+      </choose>
+
+      <choose>
+        <when c="No change">
+          <test><equal><var n="tmp"/><lit v=""/></equal></test>
+          <let>
+            <var n="caseprep"/>
+            <concat><lit v="^"/><clip pos="1" part="whole"/><lit v="$ "/></concat>
+          </let>
+        </when>
+        <when c="Remove completely">
+          <test><equal><var n="tmp"/><lit v="NIL"/></equal></test>
+          <let><var n="caseprep"/><lit v=""/></let>
+        </when>
+        <otherwise c="Enforce a certain preposition">
+          <let>
+            <var n="caseprep"/>
+            <concat>
+              <lit v="^"/><clip pos="1" part="tags"/><lit v="{^"/>
+              <var n="tmp"/><lit-tag v="pr"/>
+              <lit v="$}$ "/>
+            </concat>
+          </let>
+        </otherwise>
+      </choose>
+    </def-macro>
+
+    <def-macro n="apply_ana_gen" npar="1"
+               c="arg.1: SN or verb
+                  -----
+                  If 'ana_m_f' is set, apply it if tagged GD_pers or no gender tag (eg. if we have a verb).
+                  If there's no gender tag, make sure we make one.
+                  (If no tags at all, put it after lemh; if tags but no gen, put it after the tags.)
+                  Else if 'ana_gen' is set, apply it if GD.
+                  TODO: check that impers verbs still output nt pro's!">
+      <choose>
+        <when c="If this word is tagged pers and missing (pers) gender, use the gender from ana_m_f_pers">
+          <test><and>
+            <not><equal><var n="ana_m_f_pers"/><lit v=""/></equal></not>
+            <or>
+              <equal><clip pos="1" part="gen"/><lit v=""/></equal>
+              <equal><clip pos="1" part="gen"/><lit-tag v="GD_pers"/></equal>
+            </or>
+            <equal><clip pos="1" part="animacy"/><lit-tag v="pers"/></equal>
+          </and></test>
+          <let><clip pos="1" part="gen"/><var n="ana_m_f_pers"/></let>
+          <choose>
+            <when>
+              <test><equal><clip pos="1" part="tags"/><lit v=""/></equal></test>
+              <let><clip pos="1" part="lemh"/><concat><clip pos="1" part="lemh"/><var n="ana_m_f_pers"/></concat></let>
+            </when>
+            <when>
+              <test><equal><clip pos="1" part="gen"/><lit v=""/></equal></test>
+              <let><clip pos="1" part="tags"/><concat><clip pos="1" part="tags"/><var n="ana_m_f_pers"/></concat></let>
+            </when>
+          </choose>
+        </when>
+        <when c="else fall back on ana_m_f (might be from inanimates)">
+          <test><not><equal><var n="ana_m_f"/><lit v=""/></equal></not></test>
+          <choose>
+            <when>
+              <test><equal><clip pos="1" part="gen"/><lit-tag v="GD_pers"/></equal></test>
+              <let><clip pos="1" part="gen"/><var n="ana_m_f"/></let>
+            </when>
+            <when>
+              <test><equal><clip pos="1" part="tags"/><lit v=""/></equal></test>
+              <let><clip pos="1" part="lemh"/><concat><clip pos="1" part="lemh"/><var n="ana_m_f"/></concat></let>
+            </when>
+            <when>
+              <test><equal><clip pos="1" part="gen"/><lit v=""/></equal></test>
+              <let><clip pos="1" part="tags"/><concat><clip pos="1" part="tags"/><var n="ana_m_f"/></concat></let>
+            </when>
+          </choose>
+        </when>
+      </choose>
+
+      <choose><when>
+        <test><and>
+          <not><equal><var n="ana_gen"/><lit v=""/></equal></not>
+          <equal><clip pos="1" part="gen"/><lit-tag v="GD"/></equal>
+        </and></test>
+        <let><clip pos="1" part="gen"/><var n="ana_gen"/></let>
+      </when></choose>
+
+      <choose><when>
+        <test><and>
+          <not><equal><var n="ana_nbr"/><lit v=""/></equal></not>
+          <equal><clip pos="1" part="nbr"/><lit-tag v="ND"/></equal>
+        </and></test>
+        <let><clip pos="1" part="nbr"/><var n="ana_nbr"/></let>
+      </when></choose>
+    </def-macro>
+
+    <def-macro n="set_ana_gen" npar="1"
+               c="arg.1: SN or SV
+                  -----
+                  If we have a subject
+                  - If not p1/p2/pl:
+                    * If gender is m/f, store gender in 'ana_m_f' and 'ana_gen';
+                    * If gender is nt or we're given a verb, store nt in 'ana_gen' only;
+                  - If sg/pl: set 'ana_nbr'
+
+                  Call 'apply_ana_gen' regardless (in case we have a GD).
+                  Call 'set_caseprep' regardless">
+      <choose><when>
+        <test><and>
+          <equal><clip pos="1" part="animacy"/><lit-tag v="pers"/></equal>
+          <or>
+            <equal><clip pos="1" part="gen"/><lit-tag v="f"/></equal>
+            <equal><clip pos="1" part="gen"/><lit-tag v="m"/></equal>
+          </or>
+        </and></test>
+        <let><var n="ana_m_f_pers"/><clip pos="1" part="gen"/></let>
+      </when></choose>
+
+      <choose><when>
+        <test><or>
+          <equal><clip pos="1" part="syn_label"/><lit-tag v="@SUBJ→"/></equal>
+          <equal><clip pos="1" part="syn_label"/><lit-tag v="@←SUBJ"/></equal>
+        </or></test>
+
+        <choose><when>
+          <test><and>
+            <not><equal><clip pos="1" part="nbr"/><lit-tag v="pl"/></equal></not>
+            <not><equal><clip pos="1" part="pers"/><lit-tag v="p1"/></equal></not>
+            <not><equal><clip pos="1" part="pers"/><lit-tag v="p2"/></equal></not>
+          </and></test>
+          <choose><when>
+            <test><or>
+              <equal><clip pos="1" part="gen"/><lit-tag v="f"/></equal>
+              <equal><clip pos="1" part="gen"/><lit-tag v="m"/></equal>
+            </or></test>
+            <let><var n="ana_m_f"/><clip pos="1" part="gen"/></let>
+            <let><var n="ana_gen"/><clip pos="1" part="gen"/></let>
+          </when></choose>
+          <choose><when>
+            <test><or>
+              <equal><clip pos="1" part="gen"/><lit-tag v="nt"/></equal>
+              <equal><clip pos="1" part="a_sintagma"/><lit-tag v="SV"/></equal>
+            </or></test>
+            <let><var n="ana_gen"/><lit-tag v="nt"/></let>
+          </when></choose>
+        </when></choose>
+
+        <choose><when>
+          <test><or>
+            <equal><clip pos="1" part="nbr"/><lit-tag v="sg"/></equal>
+            <equal><clip pos="1" part="nbr"/><lit-tag v="pl"/></equal>
+          </or></test>
+          <let><var n="ana_nbr"/><clip pos="1" part="nbr"/></let>
+        </when></choose>
+      </when></choose>
+
+      <choose><when>
+        <test><equal><var n="ana_m_f"/><lit v=""/></equal></test>
+        <let><var n="ana_m_f"/><var n="ana_m_f_pers"/></let>
+      </when></choose>
+
+      <call-macro n="apply_ana_gen"><with-param pos="1"/></call-macro>
+      <call-macro n="set_caseprep"><with-param pos="1"/></call-macro>
+    </def-macro>
+
+  </section-def-macros>
+
+  <section-rules>
+    <!-- <rules: Coordination -->
+    <rule comment="REGLA: SA CNP SA">
+      <pattern>
+        <pattern-item n="SA"/>
+        <pattern-item n="CNP"/>
+        <pattern-item n="SA"/>
+      </pattern>
+      <action>
+        <!-- <exception><test><not><equal><clip pos="1" part="case"/><clip pos="3" part="case"/></equal></not></test></exception> -->
+        <call-macro n="apply_ana_gen"><with-param pos="1"/></call-macro>
+        <call-macro n="apply_ana_gen"><with-param pos="3"/></call-macro>
+        <call-macro n="set_c_name3"><with-param pos="1"/><with-param pos="2"/><with-param pos="3"/></call-macro>
+        <call-macro n="set_c_tags2"><with-param pos="1"/><with-param pos="3"/></call-macro>
+        <out>
+          <chunk>
+           <var n="c_name"/>
+           <var n="c_tags"/>
+           <lit v="{"/>
+           <clip pos="1" part="content"/>
+           <b pos="1"/>
+           <clip pos="2" part="content"/>
+           <b pos="2"/>
+           <clip pos="3" part="content"/>
+           <lit v="}"/>
+           <clip pos="1" part="lemq"/>
+         </chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: SN CNP SN
+                   We assume CG only gives us SN CNP SN if they _should_ be coordinated.
+                   For now only uses the case etc. of the first conjunct.
+                   TODO: what should happen where we still have different cases? («i Norge og på Island»?)">
+      <pattern>
+        <pattern-item n="SN"/>
+        <pattern-item n="CNP"/>
+        <pattern-item n="SN"/>
+      </pattern>
+      <action>
+        <!-- <exception><test><not><equal><clip pos="1" part="case"/><clip pos="3" part="case"/></equal></not></test></exception> -->
+        <call-macro n="set_ana_gen"><with-param pos="3"/></call-macro>
+        <call-macro n="set_c_name3"><with-param pos="1"/><with-param pos="2"/><with-param pos="3"/></call-macro>
+        <call-macro n="set_c_tags2"><with-param pos="1"/><with-param pos="3"/></call-macro>
+        <out>
+          <chunk>
+            <var n="c_name"/>
+            <var n="c_tags"/>
+            <lit v="{"/>
+            <clip pos="1" part="content"/>
+            <b pos="1"/>
+            <clip pos="2" part="content"/>
+            <b pos="2"/>
+            <clip pos="3" part="content"/>
+            <lit v="}"/>
+            <clip pos="1" part="lemq"/>
+          </chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: PR SN CNP PR SN">
+      <pattern>
+        <pattern-item n="PR"/>
+        <pattern-item n="SN"/>
+        <pattern-item n="CNP"/>
+        <pattern-item n="PR"/>
+        <pattern-item n="SN"/>
+      </pattern>
+      <action>
+        <!-- <exception><test><not><equal><clip pos="1" part="case"/><clip pos="4" part="case"/></equal></not></test></exception> -->
+        <call-macro n="set_ana_gen"><with-param pos="5"/></call-macro>
+        <call-macro n="set_c_name3"><with-param pos="2"/><with-param pos="3"/><with-param pos="5"/></call-macro>
+        <call-macro n="set_c_tags2"><with-param pos="2"/><with-param pos="5"/></call-macro>
+        <out>
+          <chunk>
+            <clip pos="1" part="whole"/>
+          </chunk>
+          <b pos="1"/>
+          <chunk>
+            <var n="c_name"/>
+            <var n="c_tags"/>
+            <lit v="{"/>
+            <clip pos="2" part="content"/>
+            <b pos="2"/>
+            <clip pos="3" part="content"/>
+            <b pos="3"/>
+            <clip pos="5" part="content"/>
+            <lit v="}"/>
+            <clip pos="2" part="lemq"/>
+          </chunk>
+        </out>
+        <choose><when>
+          <test><not><equal><b pos="4"/><b/></equal></not></test>
+          <out><b pos="4"/></out>
+        </when></choose>
+      </action>
+    </rule>
+
+    <!-- <rules: Adpositions -->
+
+    <rule comment="REGLA: caseprep-PR SN-rADVL lADVL
+                   -----
+                   Islandas eret => fra Island
+                   Don't output the PR since case was selected by the adverb anyway.">
+      <pattern>
+        <pattern-item n="caseprep-PR"/>
+        <pattern-item n="SN_rADVL"/>
+        <pattern-item n="lADVL"/>
+      </pattern>
+      <action>
+        <call-macro n="set_ana_gen"><with-param pos="2"/></call-macro>
+        <call-macro n="clean_SN_of_adpos"><with-param pos="2"/></call-macro>
+        <choose><when>
+          <test><not><equal><b pos="1"/><b/></equal></not></test>
+          <out><b pos="1"/></out>
+        </when></choose>
+        <out>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <b pos="2"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: caseprep-PR SN_rPOST adpos
+                   -----
+                   garra dálkki geažil => på_grunn_av dårlig vær
+                   dan geažil => på_grunn_av det
+                   Don't output the PR since case was selected by the adpos anyway.">
+      <pattern>
+        <pattern-item n="caseprep-PR"/>
+        <pattern-item n="SN_rPOST"/>
+        <pattern-item n="adpos"/>
+      </pattern>
+      <action>
+        <call-macro n="set_ana_gen"><with-param pos="2"/></call-macro>
+        <call-macro n="clean_SN_of_adpos"><with-param pos="2"/></call-macro>
+        <choose><when>
+          <test><not><equal><b pos="1"/><b/></equal></not></test>
+          <out><b pos="1"/></out>
+        </when></choose>
+        <out>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <b pos="2"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: SN-rPOST adpos
+                   -----
+                   Move postposition to front">
+      <pattern>
+        <pattern-item n="SN_rPOST"/>
+        <pattern-item n="adpos"/>
+      </pattern>
+      <action>
+        <call-macro n="switch_cases"><with-param pos="1"/><with-param pos="2"/></call-macro>
+        <call-macro n="set_ana_gen"><with-param pos="1"/></call-macro>
+        <call-macro n="clean_SN_of_adpos"><with-param pos="1"/></call-macro>
+        <out>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="1" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+
+    <rule comment="REGLA: adpos PR SN_PREPl
+                   -----
+                   badjel ráji =1> over til grensen =2> over grensen
+                   Don't output the PR since case was selected by the adpos anyway.">
+      <pattern>
+        <pattern-item n="adpos"/>
+        <pattern-item n="PR"/>
+        <pattern-item n="SN_PREPl"/>
+      </pattern>
+      <action>
+        <call-macro n="set_ana_gen"><with-param pos="2"/></call-macro>
+        <call-macro n="clean_SN_of_adpos"><with-param pos="3"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+        </out>
+        <choose><when>
+          <test><not><equal><b pos="2"/><b/></equal></not></test>
+          <out><b pos="2"/></out>
+        </when></choose>
+      </action>
+    </rule>
+
+
+    <rule comment="REGLA: caseprep-PR SN
+                   If the above rules didn't match, we keep the PR.
+                   Then we have to switch (upper/lower) cases of PR and SN,
+                   since a PR with lemh caseprep must've been added in t1x.">
+      <pattern>
+        <pattern-item n="caseprep-PR"/>
+        <pattern-item n="SN"/>
+      </pattern>
+      <action>
+        <call-macro n="switch_cases"><with-param pos="1"/><with-param pos="2"/></call-macro>
+        <call-macro n="modify_caseprep"><with-param pos="1"/></call-macro>
+        <out>
+          <var n="caseprep"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+
+
+    <!-- <rules: →N ADVL -->
+    <rule comment="REGLA: SN_rN.gen caseprep-PR ADVL.loc
+                   -----
+                   (málet olbmuid) earenoamáš dáhpáhusaid oktavuođas => (male mennesker) i forbindelse med spesielle hendelser
+                   Switch order, insert 'med'
+                   TODO: case should be acc or something, not nil, when prn/det">
+      <pattern>
+        <pattern-item n="SN_rN.gen"/>
+        <pattern-item n="caseprep-PR"/>
+        <pattern-item n="ADVL.loc"/>
+      </pattern>
+      <action>
+        <call-macro n="clean_SN_of_adpos"><with-param pos="1"/></call-macro>
+        <out>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <b/>
+          <chunk>
+            <lit v="caseprep"/><lit-tag v="PR"/><lit v="{^med"/><lit-tag v="pr"/><lit v="$}"/>
+          </chunk>
+          <b pos="2"/>
+          <chunk><clip pos="1" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+
+    <!-- <rules: ditransitives (just switch order instead of removing caseprep) -->
+    <rule comment="REGLA: caseprep-PR SN lOBJ
+                   -----
+                   dutnje 60 000 ruvnnu =1> til deg 60 000 kroner =2> 60 000 kroner til deg">
+      <pattern>
+        <pattern-item n="caseprep-PR"/>
+        <pattern-item n="SN"/>
+        <pattern-item n="lOBJ"/>
+      </pattern>
+      <action>
+        <call-macro n="switch_cases"><with-param pos="1"/><with-param pos="3"/></call-macro>
+        <out>
+          <chunk><clip pos="3" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="1" part="whole"/></chunk>
+          <b pos="2"/>
+          <chunk><clip pos="2" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+
+    <!-- <rules: Verb coordination, set/use verb-anaphoric variables -->
+    <rule comment="REGLA: FV CVP FV
+                   -----
+                   set anaphoric temps variable
+                   use anaphoric gen variable">
+      <pattern>
+        <pattern-item n="FV"/>
+        <pattern-item n="CVP"/>
+        <pattern-item n="FV"/>
+      </pattern>
+      <action>
+        <choose>
+          <when>
+            <test><and>
+              <equal><clip pos="1" part="temps"/><clip pos="3" part="temps"/></equal>
+              <equal><clip pos="1" part="nbr"/><clip pos="3" part="nbr"/></equal>
+              <equal><clip pos="1" part="pers"/><clip pos="3" part="pers"/></equal>
+            </and></test>
+            <call-macro n="set_ana_temps"><with-param pos="1"/></call-macro>
+            <call-macro n="apply_ana_gen"><with-param pos="1"/></call-macro>
+
+            <call-macro n="set_c_name3"><with-param pos="1"/><with-param pos="2"/><with-param pos="3"/></call-macro>
+            <call-macro n="set_c_tags2"><with-param pos="1"/><with-param pos="3"/></call-macro>
+            <out>
+              <chunk>
+                <var n="c_name"/>
+                <var n="c_tags"/>
+                <lit v="{"/>
+                <clip pos="1" part="content"/>
+                <clip pos="1" part="lemq"/>
+                <b pos="1"/>
+                <clip pos="2" part="content"/>
+                <clip pos="2" part="lemq"/>
+                <b pos="2"/>
+                <clip pos="3" part="content"/>
+                <clip pos="3" part="lemq"/>
+                <lit v="}"/>
+              </chunk>
+            </out>
+          </when>
+          <otherwise c="exception">
+            <call-macro n="apply_ana_gen"><with-param pos="1"/></call-macro>
+            <call-macro n="apply_ana_gen"><with-param pos="3"/></call-macro>
+            <call-macro n="set_ana_temps"><with-param pos="3"/></call-macro>
+            <out>
+              <chunk><clip pos="1" part="whole"/></chunk>
+              <b pos="1"/>
+              <chunk><clip pos="2" part="whole"/></chunk>
+              <b pos="2"/>
+              <chunk><clip pos="3" part="whole"/></chunk>
+            </out>
+          </otherwise>
+        </choose>
+      </action>
+    </rule>
+
+    <rule comment="REGLA: FV
+                   -----
+                   set anaphoric temps variable
+                   use anaphoric gen variable">
+      <pattern>
+        <pattern-item n="FV"/>
+      </pattern>
+      <action>
+        <call-macro n="set_ana_temps"><with-param pos="1"/></call-macro>
+        <call-macro n="set_ana_gen"><with-param pos="1"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: FV PCLE.qst
+                   -----
+                   set anaphoric temps variable
+                   use anaphoric gen variable">
+      <pattern>
+        <pattern-item n="FV"/>
+        <pattern-item n="PCLE.qst"/>
+      </pattern>
+      <action>
+        <call-macro n="tag_qst"><with-param pos="1"/></call-macro>
+        <call-macro n="set_ana_temps"><with-param pos="1"/></call-macro>
+        <call-macro n="set_ana_gen"><with-param pos="1"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+
+    <rule comment="REGLA: V.TD
+                   -----
+                   use anaphoric temps variables
+                   use/set anaphoric gen variable
+                   mun dieđán Máreha čállime dál => jeg vet Máret skriver nå">
+      <pattern>
+        <pattern-item n="V.TD"/>
+      </pattern>
+      <action>
+        <call-macro n="set_ana_gen"><with-param pos="1"/></call-macro>
+        <call-macro n="apply_ana_temps"><with-param pos="1"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: V.TD PCLE.qst
+                   -----
+                   use anaphoric temps variables
+                   use/set anaphoric gen variable
+                   mun dieđán Máreha čállime dál => jeg vet Máret skriver nå">
+      <pattern>
+        <pattern-item n="V.TD"/>
+        <pattern-item n="PCLE.qst"/>
+      </pattern>
+      <action>
+        <call-macro n="tag_qst"><with-param pos="1"/></call-macro>
+        <call-macro n="set_ana_gen"><with-param pos="1"/></call-macro>
+        <call-macro n="apply_ana_temps"><with-param pos="1"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+
+    <rule comment="REGLA: V
+                   -----
+                   use/set anaphoric gen variable">
+      <pattern>
+        <pattern-item n="V"/>
+      </pattern>
+      <action>
+        <call-macro n="set_ana_gen"><with-param pos="1"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: V PCLE.qst
+                   -----
+                   use/set anaphoric gen variable">
+      <pattern>
+        <pattern-item n="V"/>
+        <pattern-item n="PCLE.qst"/>
+      </pattern>
+      <action>
+        <call-macro n="tag_qst"><with-param pos="1"/></call-macro>
+        <call-macro n="set_ana_gen"><with-param pos="1"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+
+    <!-- FV-cop 'som' -->
+    <rule comment="REGLA: vcop-FV caseprep-PR.ess
+                   -----
+                   Son lea taksivuoddjin Oslos => Han er drosjesjåfør i Oslo
+                   Delete 'som'
+                   (can't use set/modify_caseprep for leat+essive, only certain contexts)
+                   set anaphoric temps variable
+                   use anaphoric gen variable
+TODO: would we ever see  FV CVP FV-cop PR-caseprep-ess  or similar? If so, needs rule.">
+      <pattern>
+        <pattern-item n="vcop-FV"/>
+        <pattern-item n="caseprep-PR.ess"/>
+      </pattern>
+      <action>
+        <call-macro n="set_ana_temps"><with-param pos="1"/></call-macro>
+        <call-macro n="set_ana_gen"><with-param pos="1"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+        </out>
+        <choose><when>
+          <test><not><equal><b pos="1"/><b/></equal></not></test>
+          <out><b pos="1"/></out>
+        </when></choose>
+      </action>
+    </rule>
+
+    <rule comment="REGLA: caseprep-PR.ess SN vcop-FV
+                   -----
+
+                   Delete 'som'
+                   set anaphoric temps variable
+                   use anaphoric gen variable">
+      <pattern>
+        <pattern-item n="caseprep-PR.ess"/>
+        <pattern-item n="SN"/>
+        <pattern-item n="vcop-FV"/>
+      </pattern>
+      <action>
+        <call-macro n="set_ana_gen"><with-param pos="2"/></call-macro>
+        <call-macro n="set_ana_gen"><with-param pos="3"/></call-macro>
+        <call-macro n="set_ana_temps"><with-param pos="3"/></call-macro>
+        <choose><when>
+          <test><not><equal><b pos="1"/><b/></equal></not></test>
+          <out><b pos="1"/></out>
+        </when></choose>
+        <out>
+          <chunk><clip pos="2" part="whole"/></chunk>
+          <b pos="1"/>
+          <chunk><clip pos="3" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+
+    <!-- Single nominal -->
+    <rule comment="REGLA: SN
+                   -----
+                   set gen variable">
+      <pattern>
+        <pattern-item n="SN"/>
+      </pattern>
+      <action>
+        <call-macro n="set_ana_gen"><with-param pos="1"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: SN PCLE.qst
+                   -----
+                   set gen variable">
+      <pattern>
+        <pattern-item n="SN"/>
+        <pattern-item n="PCLE.qst"/>
+      </pattern>
+      <action>
+        <call-macro n="tag_qst"><with-param pos="1"/></call-macro>
+        <call-macro n="set_ana_gen"><with-param pos="1"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+
+    <rule comment="REGLA: SA
+                   -----
+                   use gen variable">
+      <pattern>
+        <pattern-item n="SA"/>
+      </pattern>
+      <action>
+        <call-macro n="apply_ana_gen"><with-param pos="1"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+    <rule comment="REGLA: SA PCLE.qst
+                   -----
+                   use gen variable">
+      <pattern>
+        <pattern-item n="SA"/>
+        <pattern-item n="PCLE.qst"/>
+      </pattern>
+      <action>
+        <call-macro n="tag_qst"><with-param pos="1"/></call-macro>
+        <call-macro n="apply_ana_gen"><with-param pos="1"/></call-macro>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+
+    <!-- <rules: Clause boundary -->
+    <rule comment="REGLA: CLB">
+      <pattern>
+        <pattern-item n="CLB"/>
+      </pattern>
+      <action>
+        <let><var n="caseprep_verb"/><lit v=""/></let>
+        <out>
+          <chunk><clip pos="1" part="whole"/></chunk>
+        </out>
+      </action>
+    </rule>
+  </section-rules>
+</interchunk>
