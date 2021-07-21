@@ -1,0 +1,10 @@
+[-5d4cZ2TVRsc#0] ^á/á<n><abbr><gram_tabbr><attr>/á<n><abbr><gram_tabbr><sg><acc>/á<n><abbr><gram_tabbr><sg><gen>/á<n><abbr><gram_tabbr><sg><nom>$
+[/-5d4cZ2TVRsc]
+[3aXZuhClsgYm#0] ^åårkninegännah/orgaane<n><ess><foc_gænnah>/orgaane<n><pl><ine><foc_gænnah>/orgaane<n><sg><com><foc_gænnah>$
+[/3aXZuhClsgYm]
+[E0BYDB_pQ_UE#0] ^L'ïne/L<num><rom><sg><com>/L<num><rom><sg><ess>$
+[/E0BYDB_pQ_UE]
+[duCcRRQgcNVM#0] ^böøktjestidhgan/bööktjestidh<vblex><iv><inf><foc_gan>$
+[/duCcRRQgcNVM]
+[iKkrj8cF6Cmg#0] ^öövtiedïdhgih/övtiedidh<vblex><tv><inf><foc_gih>$
+[/iKkrj8cF6Cmg]

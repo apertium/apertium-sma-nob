@@ -1,0 +1,10 @@
+[-5d4cZ2TVRsc#0] ^nom<SN><@HNOUN><ind><m><sg><nom><unc><impers>{^áalphabet<n><m><sg><3>$}$
+[/-5d4cZ2TVRsc]
+[3aXZuhClsgYm#0] ^caseprep<PR><ess>{^som<pr>$}$ ^nom<SN><@HNOUN><ind><nt><sg><ess><impers>{^organ<n><nt><sg><3>$}$
+[/3aXZuhClsgYm]
+[E0BYDB_pQ_UE#0] ^det<SN><@HNOUN><pl><com>{^L<det><qnt><pl>$}$
+[/E0BYDB_pQ_UE]
+[duCcRRQgcNVM#0] ^verb<SV><@-FMAINV><inf><pers><NC>{^fjerte<vblex><inf>$}$
+[/duCcRRQgcNVM]
+[iKkrj8cF6Cmg#0] ^verb<SV><@-FMAINV><inf><pers><NC>{^utvikle<vblex><inf>$}$
+[/iKkrj8cF6Cmg]

@@ -1,0 +1,10 @@
+[-5d4cZ2TVRsc#0] ^á<n><abbr><gram_tabbr><sg><acc><@HNOUN>$
+[/-5d4cZ2TVRsc]
+[3aXZuhClsgYm#0] ^orgaane<n><ess><foc_gænnah><@HNOUN>$
+[/3aXZuhClsgYm]
+[E0BYDB_pQ_UE#0] ^L<num><rom><sg><com><@HNOUN>$
+[/E0BYDB_pQ_UE]
+[duCcRRQgcNVM#0] ^bööktjestidh<vblex><iv><inf><foc_gan><@-FMAINV>$
+[/duCcRRQgcNVM]
+[iKkrj8cF6Cmg#0] ^övtiedidh<vblex><tv><inf><foc_gih><@-FMAINV>$
+[/iKkrj8cF6Cmg]

@@ -1,0 +1,10 @@
+[-5d4cZ2TVRsc#0] ^áalphabet<n><m><sg><ind>$
+[/-5d4cZ2TVRsc]
+[3aXZuhClsgYm#0] ^som<pr>$ ^organ<n><nt><sg><ind>$
+[/3aXZuhClsgYm]
+[E0BYDB_pQ_UE#0] ^L<det><qnt><pl>$
+[/E0BYDB_pQ_UE]
+[duCcRRQgcNVM#0] ^fjerte<vblex><inf>$
+[/duCcRRQgcNVM]
+[iKkrj8cF6Cmg#0] ^utvikle<vblex><inf>$
+[/iKkrj8cF6Cmg]
