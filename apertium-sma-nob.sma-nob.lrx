@@ -13,6 +13,13 @@
 </rules>
 
 <!-- 
+<rule>
+    <match lemma="galkedh">
+      <select lemma="skulle""/>
+    </match>
+  </rule>
+</rules>
+
 Resources: 
     https://wiki.apertium.org/wiki/How_to_get_started_with_lexical_selection_rules
     https://wiki.apertium.org/wiki/Constraint-based_lexical_selection
